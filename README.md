@@ -1,3 +1,7 @@
+
+NOTE:FORKED FROM CODEX. STRILL IN PROGRESS
+
+
 <p align="center"><code>npm i -g @openai/codex</code><br />or <code>brew install --cask codex</code></p>
 
 <p align="center"><strong>Codex CLI</strong> is a coding agent from OpenAI that runs locally on your computer.
@@ -10,10 +14,6 @@
   </p>
 
 ---
-
-NOTE:FORKED FROM CODEX. STRILL IN PROGRESS
-
-
 
 ## Quickstart
 
