@@ -11,6 +11,10 @@
 
 ---
 
+NOTE:FORKED FROM CODEX. STRILL IN PROGRESS
+
+
+
 ## Quickstart
 
 ### Installing and running Codex CLI
