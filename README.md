@@ -29,7 +29,7 @@ CodeACE 是一个基于 [Codex CLI](https://github.com/anthropics/claude-code) �
 ### 1. 克隆仓库
 
 ```bash
-git clone https://github.com/your-username/codeACE.git
+git clone https://github.com/UU114/codeACE.git
 cd codeACE
 ```
 
