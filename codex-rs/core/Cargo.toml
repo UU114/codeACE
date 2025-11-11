@@ -11,6 +11,10 @@ path = "src/lib.rs"
 [lints]
 workspace = true
 
+[features]
+# ACE框架支持（可选特性）
+ace = []
+
 [dependencies]
 anyhow = { workspace = true }
 askama = { workspace = true }

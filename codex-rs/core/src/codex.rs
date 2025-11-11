@@ -133,6 +133,19 @@ pub mod compact;
 use self::compact::build_compacted_history;
 use self::compact::collect_user_messages;
 
+// ACE Hook管理器初始化辅助函数
+#[cfg(feature = "ace")]
+fn init_ace_hook_manager() -> Option<Arc<crate::hooks::HookManager>> {
+    // TODO: 从配置文件加载ACE配置
+    // 暂时返回None，后续从config中初始化
+    None
+}
+
+#[cfg(not(feature = "ace"))]
+fn init_ace_hook_manager() -> Option<()> {
+    None
+}
+
 /// The high-level interface to the Codex system.
 /// It operates as a queue pair where you send submissions and receive events.
 pub struct Codex {
@@ -599,6 +612,8 @@ impl Session {
             auth_manager: Arc::clone(&auth_manager),
             otel_event_manager,
             tool_approvals: Mutex::new(ApprovalStore::default()),
+            #[cfg(feature = "ace")]
+            hook_manager: init_ace_hook_manager(),
         };
 
         let sess = Arc::new(Session {
@@ -2547,6 +2562,8 @@ mod tests {
             auth_manager: Arc::clone(&auth_manager),
             otel_event_manager: otel_event_manager.clone(),
             tool_approvals: Mutex::new(ApprovalStore::default()),
+            #[cfg(feature = "ace")]
+            hook_manager: None,
         };
 
         let turn_context = Session::make_turn_context(
@@ -2623,6 +2640,8 @@ mod tests {
             auth_manager: Arc::clone(&auth_manager),
             otel_event_manager: otel_event_manager.clone(),
             tool_approvals: Mutex::new(ApprovalStore::default()),
+            #[cfg(feature = "ace")]
+            hook_manager: None,
         };
 
         let turn_context = Arc::new(Session::make_turn_context(

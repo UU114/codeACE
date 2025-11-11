@@ -38,7 +38,7 @@ members = [
     "utils/pty",
     "utils/readiness",
     "utils/string",
-    "utils/tokenizer",
+    "utils/tokenizer", "codex-ace",
 ]
 resolver = "2"
 

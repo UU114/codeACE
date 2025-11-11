@@ -19,4 +19,7 @@ pub(crate) struct SessionServices {
     pub(crate) auth_manager: Arc<AuthManager>,
     pub(crate) otel_event_manager: OtelEventManager,
     pub(crate) tool_approvals: Mutex<ApprovalStore>,
+    #[cfg(feature = "ace")]
+    #[allow(dead_code)] // Hook功能暂未完全集成
+    pub(crate) hook_manager: Option<Arc<crate::hooks::HookManager>>,
 }

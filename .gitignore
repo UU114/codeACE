@@ -82,3 +82,16 @@ CHANGELOG.ignore.md
 # nix related
 .direnv
 .envrc
+
+# ACE development files (not for public repo)
+req/
+test1111/
+DEVELOPMENT_LOG.md
+ACE_TEST_LOG.md
+readme-codex.md
+ACE_INTEGRATION.md
+ACE_MVP_TEST_PLAN.md
+BUILD-SUCCESS.md
+INSTALL-SUMMARY.md
+ace-config-example.toml
+setup-env.sh
