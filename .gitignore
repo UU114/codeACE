@@ -95,3 +95,14 @@ BUILD-SUCCESS.md
 INSTALL-SUMMARY.md
 ace-config-example.toml
 setup-env.sh
+
+# ACE temporary documentation (use readme-codeACE.md as main README)
+ACE_DEFAULT_BUILD.md
+ACE_SETUP_WINDOWS.md
+CHANGES_SUMMARY.md
+PLAYBOOK_GUIDE.md
+PLAYBOOK_GUIDE_WINDOWS.md
+PLAYBOOK_QUICK_REF.md
+QUICK_START.md
+view-playbook.ps1
+view-playbook.sh

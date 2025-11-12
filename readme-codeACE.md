@@ -52,32 +52,195 @@ cd /home/com/codeACE
 ```bash
 # 1. 编译带ACE功能的Codex
 cd codex-rs
+cargo build --release --features ace
+
+# 2. 创建配置（已自动创建在 ~/.codeACE/config.toml）
+# 配置内容：
+# [ace]
+# enabled = true
+# storage_path = "~/.codeACE/ace"
+# max_entries = 500
+
+# 3. 运行Codex（ACE默认启用）
+target/release/codex "How do I run tests?"
+
+# 4. 查看 Playbook（学习结果）
+cat ~/.codeACE/ace/playbook.jsonl | jq .
+```
+
+---
+
+## 🔌 ACE插件使用指南
+
+### 1. 启用ACE
+
+ACE通过feature flag控制，编译时需要指定：
+
+```bash
+# 编译时启用ACE
+cd codex-rs
 cargo build --features ace
 
-# 2. 创建配置
-mkdir -p ~/.codex
-cat > ~/.codex/ace-config.toml << 'EOF'
+# 或在release模式
+cargo build --release --features ace
+```
+
+### 2. 配置ACE
+
+配置文件位置：`~/.codeACE/config.toml`
+
+```toml
 [ace]
-enabled = true
-storage_path = "~/.codex/ace"
-max_entries = 500
+enabled = true                    # 启用/禁用ACE
+storage_path = "~/.codeACE/ace"  # Playbook存储路径
+max_entries = 500                # 最大条目数（超过自动归档）
 
 [ace.reflector]
-extract_patterns = true
-extract_tools = true
-extract_errors = true
+extract_patterns = true          # 提取代码模式
+extract_tools = true             # 提取工具使用记录
+extract_errors = true            # 提取错误处理经验
 
 [ace.context]
-max_recent_entries = 10
-max_context_chars = 4000
-EOF
+max_recent_entries = 10          # 加载最近N条相关记录
+max_context_chars = 4000         # 最大上下文字符数
+```
 
-# 3. 运行Codex
-export CODEX_CONFIG=~/.codex/ace-config.toml
-cargo run --features ace -- "How do I run tests?"
+### 3. 日常使用
 
-# 4. 查看学习结果
-cat ~/.codex/ace/playbook.jsonl
+**ACE完全自动运行，无需手动操作：**
+
+```bash
+# 第一次询问
+codex "如何运行测试？"
+# → ACE自动记录：工具使用、命令、模式等
+
+# 第二次询问类似问题
+codex "运行单元测试"
+# → ACE自动加载之前的相关经验，提供更准确的回复
+```
+
+### 4. ACE工作流程
+
+```
+用户输入
+  ↓
+[pre_execute] 加载相关历史上下文
+  ↓
+AI生成回复（基于增强的上下文）
+  ↓
+执行操作
+  ↓
+[post_execute] 异步学习（提取知识并存储）
+  ↓
+完成（用户无感知）
+```
+
+### 5. 管理ACE
+
+```bash
+# 查看Playbook内容
+cat ~/.codeACE/ace/playbook.jsonl | jq .
+
+# 查看最近5条记录
+tail -5 ~/.codeACE/ace/playbook.jsonl | jq .
+
+# 备份Playbook
+cp ~/.codeACE/ace/playbook.jsonl ~/playbook_backup_$(date +%Y%m%d).jsonl
+
+# 清空Playbook（重新开始学习）
+rm ~/.codeACE/ace/playbook.jsonl
+```
+
+### 6. 关闭ACE
+
+如果需要临时关闭ACE：
+
+```toml
+# 修改 ~/.codeACE/config.toml
+[ace]
+enabled = false  # 关闭ACE功能
+```
+
+---
+
+## 📖 Playbook 详细使用
+
+### 什么是Playbook？
+
+Playbook是ACE的"记忆系统"，以JSONL格式存储每次对话中学到的知识。
+
+**存储位置**：`~/.codeACE/ace/playbook.jsonl`
+
+### 快速查看
+
+```bash
+# 方法1: 使用jq（推荐，格式化显示）
+cat ~/.codeACE/ace/playbook.jsonl | jq .
+
+# 方法2: 查看最近5条
+tail -5 ~/.codeACE/ace/playbook.jsonl | jq .
+
+# 方法3: 查看原始内容
+cat ~/.codeACE/ace/playbook.jsonl
+
+# 方法4: 实时监控新增
+tail -f ~/.codeACE/ace/playbook.jsonl
+```
+
+### 高级查询
+
+```bash
+# 查看特定标签的条目
+cat ~/.codeACE/ace/playbook.jsonl | jq 'select(.tags | contains(["testing"]))'
+
+# 查看成功的条目
+cat ~/.codeACE/ace/playbook.jsonl | jq 'select(.execution_success == true)'
+
+# 搜索包含特定关键词
+cat ~/.codeACE/ace/playbook.jsonl | jq 'select(.user_query | contains("test"))'
+
+# 统计总条目数
+wc -l ~/.codeACE/ace/playbook.jsonl
+
+# 统计最常用标签
+cat ~/.codeACE/ace/playbook.jsonl | jq -r '.tags[]' | sort | uniq -c | sort -rn | head -10
+```
+
+### Playbook 条目结构
+
+```json
+{
+  "id": "uuid",                          // 唯一标识符
+  "timestamp": "2025-11-11T10:00:00Z",  // 时间戳
+  "session_id": "session-uuid",         // 会话ID
+  "user_query": "用户问题",              // 用户的原始问题
+  "assistant_response": "助手回复...",  // AI的回复
+  "execution_success": true,            // 是否执行成功
+  "insights": [                         // 提取的洞察
+    {
+      "content": "使用命令: cargo test",
+      "category": "ToolUsage",
+      "importance": 0.7
+    }
+  ],
+  "patterns": ["测试执行"],             // 识别的模式
+  "tools_used": ["bash"],              // 使用的工具
+  "tags": ["testing", "tools"]         // 自动生成的标签
+}
+```
+
+### 常用操作
+
+```bash
+# 备份Playbook
+cp ~/.codeACE/ace/playbook.jsonl ~/playbook_backup_$(date +%Y%m%d).jsonl
+
+# 清空Playbook（重新开始）
+rm ~/.codeACE/ace/playbook.jsonl
+
+# 只保留最近100条
+tail -100 ~/.codeACE/ace/playbook.jsonl > /tmp/playbook_temp.jsonl
+mv /tmp/playbook_temp.jsonl ~/.codeACE/ace/playbook.jsonl
 ```
 
 ---
@@ -173,7 +336,7 @@ cat ~/.codex/ace/playbook.jsonl
 {"id":"uuid","timestamp":"2025-11-11T10:05:00Z","user_query":"...","insights":[...],"tags":[...]}
 ```
 
-**位置**: `~/.codex/ace/playbook.jsonl`
+**位置**: `~/.codeACE/ace/playbook.jsonl`
 
 ### 3. Context Loader（上下文加载器）
 
@@ -479,7 +642,7 @@ Storage保存到playbook
 ### 存储格式
 
 ```
-~/.codex/ace/
+~/.codeACE/ace/
 ├── playbook.jsonl          # 活跃数据
 └── archive/                # 归档数据
     ├── playbook_20251110.jsonl
@@ -493,11 +656,11 @@ Storage保存到playbook
 ### 基础配置
 
 ```toml
-# ~/.codex/ace-config.toml
+# ~/.codeACE/ace-config.toml
 
 [ace]
 enabled = true                    # 启用ACE
-storage_path = "~/.codex/ace"    # 存储路径
+storage_path = "~/.codeACE/ace"    # 存储路径
 max_entries = 500                 # 最大条目数（超过自动归档）
 
 [ace.reflector]
@@ -514,7 +677,7 @@ max_context_chars = 4000          # 最大字符数
 
 ```bash
 # 指定配置文件
-export CODEX_CONFIG=~/.codex/ace-config.toml
+export CODEACE_CONFIG=~/.codeACE/ace-config.toml
 
 # 运行Codex
 cargo run --features ace -- "your question"
@@ -547,10 +710,10 @@ cargo build --features ace
 
 ```bash
 # 检查配置
-cat ~/.codex/ace-config.toml
+cat ~/.codeACE/ace-config.toml
 
 # 检查权限
-ls -la ~/.codex/ace/
+ls -la ~/.codeACE/ace/
 
 # 查看日志
 # ACE使用tracing，检查是否有错误日志
@@ -560,7 +723,7 @@ ls -la ~/.codex/ace/
 
 ```bash
 # 检查playbook内容
-cat ~/.codex/ace/playbook.jsonl | jq .
+cat ~/.codeACE/ace/playbook.jsonl | jq .
 
 # 确认是否有相关条目
 # 确认关键词是否匹配
@@ -622,6 +785,7 @@ cargo test -p codex-ace
 ### Codex相关
 - **原项目**: [readme-codex.md](readme-codex.md)
 - **上游仓库**: https://github.com/anthropics/claude-code
+- **CodeACE 项目**: https://github.com/UU114/codeACE
 
 ### 测试相关
 - **快速开始**: [test1111/START_HERE.md](test1111/START_HERE.md)
@@ -632,9 +796,10 @@ cargo test -p codex-ace
 
 ## 📞 联系方式
 
-- **问题反馈**: 查看测试日志和文档
-- **功能建议**: 参考开发路线图
-- **Bug报告**: 运行测试并查看输出
+- **项目主页**: https://github.com/UU114/codeACE
+- **问题反馈**: https://github.com/UU114/codeACE/issues
+- **功能建议**: https://github.com/UU114/codeACE/discussions
+- **Bug报告**: 运行测试并在 Issues 中报告
 
 ---
 
@@ -686,24 +851,37 @@ ACE框架部分为独立开发，采用 MIT License。
 ## 🚀 快速命令参考
 
 ```bash
-# 测试相关
+# === ACE插件使用 ===
+# 编译启用ACE
+cd codex-rs
+cargo build --features ace --release
+
+# 运行Codex（ACE自动工作）
+codex "你的问题"
+
+# 查看Playbook学习成果
+cat ~/.codeACE/ace/playbook.jsonl | jq .
+tail -5 ~/.codeACE/ace/playbook.jsonl | jq .  # 最近5条
+
+# 管理Playbook
+cp ~/.codeACE/ace/playbook.jsonl ~/playbook_backup.jsonl  # 备份
+rm ~/.codeACE/ace/playbook.jsonl                          # 清空
+
+# === 测试相关 ===
 ./test1111/scripts/quick_test.sh           # 快速测试
 ./test1111/scripts/run_all_tests.sh        # 完整测试
-cargo test -p codex-ace --lib              # 单元测试
+cargo test -p codex-ace --lib              # ACE单元测试
 
-# 编译相关
-cargo build --features ace                  # 编译ACE
+# === 编译相关 ===
+cargo build --features ace                  # 编译带ACE功能
 cargo build -p codex-ace                    # 只编译ACE模块
 cargo clippy -p codex-ace                   # 代码检查
+cargo fmt                                   # 格式化代码
 
-# 运行相关
-cargo run --features ace -- "query"         # 运行Codex
-export CODEX_CONFIG=~/.codex/ace-config.toml  # 设置配置
-
-# 查看相关
-cat ~/.codex/ace/playbook.jsonl | jq .     # 查看playbook
-cat test1111/reports/test_summary_*.md     # 查看测试报告
-tail -50 DEVELOPMENT_LOG.md                # 查看开发日志
+# === 查看相关 ===
+cat ~/.codeACE/config.toml                          # 查看配置
+cat test1111/reports/test_summary_*.md              # 测试报告
+tail -50 DEVELOPMENT_LOG.md                         # 开发日志
 ```
 
 ---
