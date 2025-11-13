@@ -86,30 +86,17 @@ CHANGELOG.ignore.md
 # ACE development files (not for public repo)
 req/
 test1111/
-ace-config-example.toml
-setup-env.sh
 
-# ACE documentation - 排除所有计划、测试、开发、总结文档
-ACE_*.md
-DEVELOPMENT_LOG.md
-development_log.md
-BUILD-SUCCESS.md
-INSTALL-SUMMARY.md
-CHANGES_SUMMARY.md
-readme-codex.md
+# ACE reference documentation (开发文档归档)
+ref/
 
-# ACE guides and temporary documentation
-PLAYBOOK_*.md
-QUICK_START.md
-ACE_DEFAULT_BUILD.md
-ACE_SETUP_WINDOWS.md
-view-playbook.ps1
-view-playbook.sh
+# ACE test directories (测试文件夹命名规则: test+date 或 test+date-x)
+test[0-9]*/
+test20*/
 
-# ACE test files
-test_ace_*.sh
-test_ace_*.rs
-test_prompt.txt
+# Temporary test files
+*.test.log
+*_test_output.log
 
 # PDF files
 *.pdf

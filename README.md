@@ -1,6 +1,6 @@
-# CodeACE - Agentic Coding Environment for Codex
+# CodeACE - Agentic Context Engineering for Codex
 
-> 为 Anthropic Codex CLI 添加智能学习能力，让 AI 从对话中学习并持续改进
+> 为 OpenAI Codex CLI 添加智能学习能力，让 AI 从对话中学习并持续改进
 
 [![Status](https://img.shields.io/badge/Status-Phase_1_MVP-green.svg)](https://github.com/UU114/codeACE)
 [![Tests](https://img.shields.io/badge/Tests-100%25-brightgreen.svg)](https://github.com/UU114/codeACE)
@@ -10,26 +10,37 @@
 
 ## ⚠️ 重要说明
 
-**本项目是对 Codex CLI 的改造项目**，在原有基础上添加了 ACE (Agentic Coding Environment) 智能学习框架。
+**本项目是对 OpenAI Codex CLI 的改造项目**，在原有基础上添加了 ACE (Agentic Context Engineering) 智能学习框架。
 
 - ✅ 保留 Codex CLI 的所有原有功能
 - ✅ 新增智能学习和上下文记忆能力
 - ❌ 本文档**仅介绍 ACE 扩展功能**
 - ❌ 不包含 Codex CLI 的基础使用说明
 
-**需要 Codex CLI 的使用文档？** 请访问 [Codex CLI 官方仓库](https://github.com/anthropics/claude-code)
+**需要 Codex CLI 的使用文档？** 请访问 [OpenAI Codex CLI 官方仓库](https://github.com/openai/codex)
 
 ---
 
 ## 🎯 什么是 ACE？
 
-ACE (Agentic Coding Environment) 是一个智能学习框架，让 AI 助手能够从你的对话历史中学习，并在后续对话中提供相关经验。
+ACE (Agentic Context Engineering) 是一个智能上下文工程框架，让 AI 助手能够从对话历史中学习，构建可演化的知识库（Playbook），并在后续对话中提供相关经验。
+
+### ACE 的核心原理
+
+根据论文 *"Agentic Context Engineering: Evolving Contexts for Self-Improving Language Models"*，ACE 通过以下机制实现智能学习：
+
+1. **上下文适应（Context Adaptation）**：通过修改输入上下文而非模型权重来改进性能
+2. **避免简洁偏差（Brevity Bias）**：保留详细的领域特定知识，而非压缩成简短摘要
+3. **防止上下文崩溃（Context Collapse）**：使用增量更新而非整体重写，避免信息丢失
+4. **Playbook 演化**：将上下文视为持续积累和组织策略的演化知识库
 
 ### 核心能力
 
-- 🧠 **自动学习** - 从对话中提取工具使用、错误处理、开发模式
-- 📚 **知识积累** - 构建个性化的 Playbook 知识库
-- 🔍 **智能检索** - 基于关键词的相关上下文匹配
+- 🧠 **自动学习（Reflector）** - 从对话中提取工具使用、错误处理、开发模式
+- 📚 **知识积累（Playbook）** - 构建可演化的结构化知识库
+- 🎯 **增量更新（Delta Updates）** - 局部更新而非整体重写，防止信息丢失
+- 🔄 **生长和精炼（Grow-and-Refine）** - 平衡知识扩展与冗余控制
+- 🔍 **智能检索** - 基于关键词和语义的相关上下文匹配
 - ⚡ **高性能** - 极快的学习和检索（< 100ms）
 - 🔌 **最小侵入** - 通过 Hook 机制集成，不污染原有代码
 - 🚀 **即用即学** - 自动创建配置，开箱即用
@@ -78,8 +89,8 @@ codex tui                          # 启动 TUI 界面
 codex exec "你的问题"               # 命令行模式
 
 # ACE 在后台自动工作：
-# - 对话前：加载相关历史上下文
-# - 对话后：学习并提取知识
+# - 对话前（pre_execute Hook）：加载相关历史上下文
+# - 对话后（post_execute Hook）：异步学习并提取知识
 ```
 
 ### 5️⃣ 验证 ACE 功能
@@ -101,6 +112,25 @@ codex ace status
 
 ## 💡 ACE 如何工作？
 
+### 三大关键创新
+
+根据论文，ACE 引入三个关键创新来解决现有方法的局限性：
+
+#### 1️⃣ 独立的 Reflector 模块
+- **问题**：以往方法由单一模型承担所有职责，导致质量下降
+- **解决**：将评估和洞察提取分离为独立的 Reflector 角色
+- **效果**：显著提高上下文质量和下游性能（§4.5 消融实验证明）
+
+#### 2️⃣ 增量 Delta 更新
+- **问题**：整体重写（monolithic rewrite）代价高且容易导致上下文崩溃
+- **解决**：使用局部的、增量的 delta 更新，只修改相关部分
+- **效果**：降低 82-92% 的适应延迟和计算成本（§4.6）
+
+#### 3️⃣ Grow-and-Refine 机制
+- **问题**：简洁偏差导致丢失领域特定知识
+- **解决**：平衡稳定的上下文扩展与冗余控制
+- **效果**：保持详细的、任务特定的知识，防止信息压缩
+
 ### 工作流程
 
 ```
@@ -108,11 +138,12 @@ codex ace status
   ↓
 [pre_execute Hook] 加载相关历史上下文
   ↓
-AI 生成回复（带上下文增强）
+Generator: 生成推理轨迹和执行
   ↓
-执行操作
-  ↓
-[post_execute Hook] 异步学习（提取知识并存储）
+[post_execute Hook] 异步学习流程：
+  ├─ Reflector: 分析轨迹，提取洞察（可多轮迭代）
+  ├─ Curator: 生成 delta context items
+  └─ Storage: 增量合并到 Playbook
   ↓
 完成（用户无感知）
 ```
@@ -235,39 +266,47 @@ codeACE/
 
 ## 🧠 核心组件
 
-### 1. Reflector（智能提取器）
+ACE 采用模块化的代理架构（Agentic Architecture），将任务分解为三个专门角色：
 
-从对话中智能提取有价值的信息：
-- 🔧 工具使用（bash 命令、文件操作）
-- ❌ 错误处理（错误信息和解决方案）
-- 🔄 模式识别（测试、构建、Git 操作等）
-- 🏷️ 自动标签（基于内容的智能标签）
+### 1. Generator（生成器）
 
-### 2. Storage（存储系统）
+生成推理轨迹和执行任务：
+- 接收用户查询和相关 Playbook 上下文
+- 执行多轮推理和工具调用
+- 标记哪些 bullets 有用或误导性
+- 为 Reflector 提供反馈
+
+### 2. Reflector（反思器）
+
+**核心创新**：独立的评估和洞察提取模块
+- 🔍 分析执行轨迹，识别成功策略和失败模式
+- 💡 提取可操作的洞察（insights）
+- 🔄 支持迭代精炼（Iterative Refinement）
+- ⚖️ 避免简洁偏差，保留详细领域知识
+
+### 3. Curator（策展器）
+
+将洞察整合为结构化的 delta 更新：
+- 📝 生成紧凑的 delta context items（候选 bullets）
+- 🔗 使用轻量级非 LLM 逻辑合并到现有 Playbook
+- 🆔 管理 bullets 的元数据（ID、计数器等）
+- 🚫 去重和冗余控制
+
+### 4. Storage（存储系统）
 
 高效的 JSONL 格式存储：
 - ⚡ 追加式写入（< 1ms）
 - 📖 快速读取（100 条目 < 10ms）
-- 🔍 简单搜索
+- 🔍 基于嵌入的语义搜索
 - 📦 自动归档（超过限制时）
 
 **存储位置**：`~/.codeACE/ace/playbook.jsonl`
 
-### 3. Context Loader（上下文加载器）
+### 5. Hook 机制
 
-智能加载相关历史上下文：
-1. 用户提问
-2. 提取关键词
-3. 匹配相关条目（关键词+标签）
-4. 评分排序
-5. 格式化上下文
-6. 注入到系统消息
-
-### 4. Hook 机制
-
-最小侵入式集成到 Codex：
-- `pre_execute`: 执行前加载上下文
-- `post_execute`: 执行后进行学习
+最小侵入式集成到 Codex CLI：
+- `pre_execute`: 执行前加载相关上下文
+- `post_execute`: 执行后异步学习（不阻塞用户）
 
 ---
 
@@ -343,29 +382,33 @@ cargo test --features ace ace_learning_test
 
 ### Codex CLI 官方资源
 
-- [Codex CLI GitHub](https://github.com/anthropics/claude-code)
-- [Claude API 文档](https://docs.anthropic.com/)
-- [Anthropic 官网](https://www.anthropic.com/)
+- [OpenAI Codex CLI GitHub](https://github.com/openai/codex)
+- [OpenAI API 文档](https://platform.openai.com/docs)
+- [OpenAI 官网](https://www.openai.com/)
 
 ### ACE 相关
 
 - [ACE 配置指南](docs/ACE_Configuration_Guide.md)
-- 本项目基于 Agentic Context Engineering 论文理念实现
+- [ACE 论文](2510.04618v1.pdf) - *Agentic Context Engineering: Evolving Contexts for Self-Improving Language Models*
+- 论文作者：Qizheng Zhang et al. (Stanford University, SambaNova Systems, UC Berkeley)
+- 论文链接：[arXiv:2510.04618](https://arxiv.org/abs/2510.04618)
 
 ---
 
 ## 📄 许可证
 
-本项目基于 Codex CLI (Anthropic)，遵循原项目许可证。
+本项目基于 OpenAI Codex CLI，遵循原项目许可证。
 
-ACE 框架部分为独立开发，采用 MIT License。
+ACE 框架扩展部分为独立开发，采用 MIT License。
 
 ---
 
 ## 🙏 致谢
 
-- [Anthropic](https://www.anthropic.com/) - 提供 Codex CLI 基础
-- ACE 论文作者 - 提供理论基础
+- [OpenAI](https://www.openai.com/) - 提供 Codex CLI 基础框架
+- [ACE 论文作者](https://arxiv.org/abs/2510.04618) - 提供 Agentic Context Engineering 理论基础
+  - Qizheng Zhang, Changran Hu, Shubhangi Upasani, Boyuan Ma, Fenglu Hong, et al.
+  - Stanford University, SambaNova Systems, UC Berkeley
 - 所有贡献者和使用者
 
 ---
