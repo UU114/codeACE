@@ -86,34 +86,30 @@ CHANGELOG.ignore.md
 # ACE development files (not for public repo)
 req/
 test1111/
-DEVELOPMENT_LOG.md
-ACE_TEST_LOG.md
-readme-codex.md
-ACE_INTEGRATION.md
-ACE_MVP_TEST_PLAN.md
-BUILD-SUCCESS.md
-INSTALL-SUMMARY.md
 ace-config-example.toml
 setup-env.sh
 
-# ACE temporary documentation (use readme-codeACE.md as main README)
+# ACE documentation - 排除所有计划、测试、开发、总结文档
+ACE_*.md
+DEVELOPMENT_LOG.md
+development_log.md
+BUILD-SUCCESS.md
+INSTALL-SUMMARY.md
+CHANGES_SUMMARY.md
+readme-codex.md
+
+# ACE guides and temporary documentation
+PLAYBOOK_*.md
+QUICK_START.md
 ACE_DEFAULT_BUILD.md
 ACE_SETUP_WINDOWS.md
-CHANGES_SUMMARY.md
-PLAYBOOK_GUIDE.md
-PLAYBOOK_GUIDE_WINDOWS.md
-PLAYBOOK_QUICK_REF.md
-QUICK_START.md
 view-playbook.ps1
 view-playbook.sh
 
 # ACE test files
-test_ace_conversation.sh
-test_ace_learning.rs
+test_ace_*.sh
+test_ace_*.rs
 test_prompt.txt
-
-# Temporary development logs
-development_log.md
 
 # PDF files
 *.pdf
