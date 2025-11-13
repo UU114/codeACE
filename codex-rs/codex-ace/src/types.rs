@@ -166,7 +166,7 @@ impl Default for ACEConfig {
     fn default() -> Self {
         Self {
             enabled: false,
-            storage_path: "~/.codex/ace".to_string(),
+            storage_path: "~/.codeACE/ace".to_string(),
             max_entries: 500,
             reflector: ReflectorConfig::default(),
             context: ContextConfig::default(),

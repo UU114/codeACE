@@ -42,7 +42,7 @@ pub struct CodexToolCallParam {
     pub sandbox: Option<CodexToolCallSandboxMode>,
 
     /// Individual config settings that will override what is in
-    /// CODEX_HOME/config.toml.
+    /// CODEACE_HOME/config.toml.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub config: Option<HashMap<String, serde_json::Value>>,
 
@@ -275,7 +275,7 @@ mod tests {
                 "type": "string"
               },
               "config": {
-                "description": "Individual config settings that will override what is in CODEX_HOME/config.toml.",
+                "description": "Individual config settings that will override what is in CODEACE_HOME/config.toml.",
                 "additionalProperties": true,
                 "type": "object"
               },

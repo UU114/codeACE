@@ -12,8 +12,8 @@ path = "src/lib.rs"
 workspace = true
 
 [features]
-# ACE框架支持（可选特性）
-ace = []
+# ACE框架支持（可选特性，由上层应用启用）
+ace = ["dep:regex", "dep:shellexpand"]
 
 [dependencies]
 anyhow = { workspace = true }
@@ -89,6 +89,9 @@ which = { workspace = true }
 wildmatch = { workspace = true }
 codex_windows_sandbox = { package = "codex-windows-sandbox", path = "../windows-sandbox-rs" }
 
+# ACE框架可选依赖（仅在启用 ace feature 时）
+regex = { version = "1.10", optional = true }
+shellexpand = { version = "3.1", optional = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 landlock = { workspace = true }

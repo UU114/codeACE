@@ -27,7 +27,7 @@ pub fn assert_regex_match<'s>(pattern: &str, actual: &'s str) -> regex_lite::Cap
 
 /// Returns a default `Config` whose on-disk state is confined to the provided
 /// temporary directory. Using a per-test directory keeps tests hermetic and
-/// avoids clobbering a developer’s real `~/.codex`.
+/// avoids clobbering a developer's real `~/.codeACE`.
 pub fn load_default_config_for_test(codex_home: &TempDir) -> Config {
     Config::load_from_base_config_with_overrides(
         ConfigToml::default(),

@@ -1,6 +1,6 @@
 # Example config.toml
 
-Use this example configuration as a starting point. For an explanation of each field and additional context, see [Configuration](./config.md). Copy the snippet below to `~/.codex/config.toml` and adjust values as needed.
+Use this example configuration as a starting point. For an explanation of each field and additional context, see [Configuration](./config.md). Copy the snippet below to `~/.codeACE/config.toml` and adjust values as needed.
 
 ```toml
 # Codex example configuration (config.toml)

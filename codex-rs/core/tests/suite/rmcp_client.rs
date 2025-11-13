@@ -832,8 +832,8 @@ async fn streamable_http_tool_call_round_trip() -> anyhow::Result<()> {
     Ok(())
 }
 
-/// This test writes to a fallback credentials file in CODEX_HOME.
-/// Ideally, we wouldn't need to serialize the test but it's much more cumbersome to wire CODEX_HOME through the code.
+/// This test writes to a fallback credentials file in CODEACE_HOME.
+/// Ideally, we wouldn't need to serialize the test but it's much more cumbersome to wire CODEACE_HOME through the code.
 #[serial(codex_home)]
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn streamable_http_with_oauth_round_trip() -> anyhow::Result<()> {
@@ -897,7 +897,7 @@ async fn streamable_http_with_oauth_round_trip() -> anyhow::Result<()> {
         .await?;
 
     let temp_home = tempdir()?;
-    let _guard = EnvVarGuard::set("CODEX_HOME", temp_home.path().as_os_str());
+    let _guard = EnvVarGuard::set("CODEACE_HOME", temp_home.path().as_os_str());
     write_fallback_oauth_tokens(
         temp_home.path(),
         server_name,

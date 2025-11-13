@@ -2,9 +2,9 @@
 
 Codex uses [`AGENTS.md`](https://agents.md/) files to gather helpful guidance before it starts assisting you. This page explains how those files are discovered and combined, so you can decide where to place your instructions.
 
-## Global Instructions (`~/.codex`)
+## Global Instructions (`~/.codeACE`)
 
-- Codex looks for global guidance in your Codex home directory (usually `~/.codex`; set `CODEX_HOME` to change it). For a quick overview, see the [Memory with AGENTS.md section](../docs/getting-started.md#memory-with-agentsmd) in the getting started guide.
+- Codex looks for global guidance in your Codex home directory (usually `~/.codeACE`; set `CODEACE_HOME` to change it). For a quick overview, see the [Memory with AGENTS.md section](../docs/getting-started.md#memory-with-agentsmd) in the getting started guide.
 - If an `AGENTS.override.md` file exists there, it takes priority. If not, Codex falls back to `AGENTS.md`.
 - Only the first non-empty file is used. Other filenames, such as `instructions.md`, have no effect unless Codex is specifically instructed to use them.
 - Whatever Codex finds here stays active for the whole session, and Codex combines it with any project-specific instructions it discovers.
@@ -19,7 +19,7 @@ When you work inside a project, Codex builds on those global instructions by col
 
 ## How They Come Together
 
-Before Codex gets to work, the instructions are ingested in precedence order: global guidance from `~/.codex` comes first, then each project doc from the repository root down to your current directory. Guidance in deeper directories overrides earlier layers, so the most specific file controls the final behavior.
+Before Codex gets to work, the instructions are ingested in precedence order: global guidance from `~/.codeACE` comes first, then each project doc from the repository root down to your current directory. Guidance in deeper directories overrides earlier layers, so the most specific file controls the final behavior.
 
 ### Priority Summary
 
@@ -41,7 +41,7 @@ Example: suppose your configuration lists `["TEAM_GUIDE.md", ".agents.md"]`. Ins
 
 If the repository root contains `TEAM_GUIDE.md` and the `backend/` directory contains `AGENTS.override.md`, the overall instructions will combine the root `TEAM_GUIDE.md` (because no override or default file was present there) with the `backend/AGENTS.override.md` file (which takes precedence over the fallback names).
 
-You can configure those fallbacks in `~/.codex/config.toml` (or another profile) like this:
+You can configure those fallbacks in `~/.codeACE/config.toml` (or another profile) like this:
 
 ```toml
 project_doc_fallback_filenames = ["TEAM_GUIDE.md", ".agents.md"]

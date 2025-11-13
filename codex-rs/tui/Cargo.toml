@@ -12,6 +12,9 @@ name = "codex_tui"
 path = "src/lib.rs"
 
 [features]
+# 默认启用 ACE 功能
+default = ["ace"]
+ace = ["codex-core/ace", "codex-ace"]
 # Enable vt100-based tests (emulator) when running with `--features vt100-tests`.
 vt100-tests = []
 # Gate verbose debug logging inside the TUI implementation.
@@ -40,6 +43,7 @@ codex-ollama = { workspace = true }
 codex-protocol = { workspace = true }
 codex-app-server-protocol = { workspace = true }
 codex-feedback = { workspace = true }
+codex-ace = { workspace = true, optional = true }
 color-eyre = { workspace = true }
 crossterm = { workspace = true, features = [
     "bracketed-paste",

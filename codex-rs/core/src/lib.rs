@@ -82,9 +82,12 @@ mod tasks;
 mod user_notification;
 pub mod util;
 
-// ACE框架Hook支持
-#[cfg(feature = "ace")]
+// Hook支持（总是可用，为扩展提供接口）
 pub mod hooks;
+
+// ACE框架模块（可选编译）
+#[cfg(feature = "ace")]
+pub mod ace;
 
 pub use apply_patch::CODEX_APPLY_PATCH_ARG1;
 pub use command_safety::is_safe_command;

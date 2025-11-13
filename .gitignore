@@ -106,3 +106,14 @@ PLAYBOOK_QUICK_REF.md
 QUICK_START.md
 view-playbook.ps1
 view-playbook.sh
+
+# ACE test files
+test_ace_conversation.sh
+test_ace_learning.rs
+test_prompt.txt
+
+# Temporary development logs
+development_log.md
+
+# PDF files
+*.pdf

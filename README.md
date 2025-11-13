@@ -2,8 +2,8 @@
 
 > 让AI从对话中学习，持续优化编程体验的智能框架
 
-[![Status](https://img.shields.io/badge/Status-MVP-green.svg)](https://github.com)
-[![Tests](https://img.shields.io/badge/Tests-100%25-brightgreen.svg)](https://github.com)
+[![Status](https://img.shields.io/badge/Status-MVP-green.svg)](https://github.com/UU114/codeACE)
+[![Tests](https://img.shields.io/badge/Tests-100%25-brightgreen.svg)](https://github.com/UU114/codeACE)
 [![Rust](https://img.shields.io/badge/Rust-1.75+-orange.svg)](https://www.rust-lang.org)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
@@ -42,12 +42,12 @@ cargo build --features ace --release
 
 ### 3. 配置
 
-创建配置文件 `~/.codex/ace-config.toml`：
+创建配置文件 `~/.codeACE/ace-config.toml`：
 
 ```toml
 [ace]
 enabled = true
-storage_path = "~/.codex/ace"
+storage_path = "~/.codeACE/ace"
 max_entries = 500
 
 [ace.reflector]
@@ -63,9 +63,31 @@ max_context_chars = 4000
 ### 4. 运行
 
 ```bash
-export CODEX_CONFIG=~/.codex/ace-config.toml
-cargo run --features ace -- "How do I run tests?"
+# ACE 已默认启用（通过 ~/.codeACE/config.toml）
+target/release/codex "How do I run tests?"
 ```
+
+### 5. 查看 Playbook（学习结果）
+
+Playbook 存储位置：`~/.codeACE/ace/playbook.jsonl`
+
+```bash
+# 查看所有条目（格式化）
+cat ~/.codeACE/ace/playbook.jsonl | jq .
+
+# 查看最近5条
+cat ~/.codeACE/ace/playbook.jsonl | jq -s '.[-5:]'
+
+# 使用提供的脚本
+bash view-playbook.sh    # Linux/macOS
+# 或
+powershell view-playbook.ps1    # Windows
+
+# 实时监控新增
+tail -f ~/.codeACE/ace/playbook.jsonl
+```
+
+详细的 Playbook 查看方法请参考 [readme-codeACE.md](readme-codeACE.md#-playbook-查看方法)
 
 ---
 
@@ -201,7 +223,7 @@ codex-rs/
 ```toml
 [ace]
 enabled = true                    # 启用ACE
-storage_path = "~/.codex/ace"    # 存储路径
+storage_path = "~/.codeACE/ace"    # 存储路径
 max_entries = 500                 # 最大条目数
 
 [ace.reflector]
@@ -275,11 +297,11 @@ ACE框架部分采用 MIT License。
 
 ## 📞 联系方式
 
-- 📧 Issues: [GitHub Issues](https://github.com/your-username/codeACE/issues)
-- 💬 Discussions: [GitHub Discussions](https://github.com/your-username/codeACE/discussions)
+- 📧 Issues: [GitHub Issues](https://github.com/UU114/codeACE/issues)
+- 💬 Discussions: [GitHub Discussions](https://github.com/UU114/codeACE/discussions)
 
 ---
 
 **让AI真正理解你的开发习惯** 🚀
 
-[![Star](https://img.shields.io/github/stars/your-username/codeACE?style=social)](https://github.com/your-username/codeACE)
+[![Star](https://img.shields.io/github/stars/UU114/codeACE?style=social)](https://github.com/UU114/codeACE)

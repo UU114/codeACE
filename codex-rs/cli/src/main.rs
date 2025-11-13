@@ -113,6 +113,44 @@ enum Subcommand {
 
     /// Inspect feature flags.
     Features(FeaturesCli),
+
+    /// [experimental] Manage ACE (Agentic Coding Environment) playbook.
+    #[cfg(feature = "ace")]
+    Ace {
+        #[clap(subcommand)]
+        sub: AceSubcommand,
+    },
+}
+
+// ACE子命令定义（仅在ace feature启用时）
+#[cfg(feature = "ace")]
+#[derive(Debug, clap::Subcommand)]
+enum AceSubcommand {
+    /// Show ACE status and statistics
+    Status,
+
+    /// Show recent learning entries
+    Show {
+        /// Number of entries to show
+        #[arg(long, default_value = "10")]
+        limit: usize,
+    },
+
+    /// Clear the playbook
+    Clear {
+        /// Delete entries without archiving
+        #[arg(long)]
+        no_archive: bool,
+    },
+
+    /// Search the playbook
+    Search {
+        /// Search query
+        query: String,
+    },
+
+    /// Show ACE configuration
+    Config,
 }
 
 #[derive(Debug, Parser)]
@@ -537,6 +575,35 @@ async fn cli_main(codex_linux_sandbox_exe: Option<PathBuf>) -> anyhow::Result<()
                 }
             }
         },
+        #[cfg(feature = "ace")]
+        Some(Subcommand::Ace { sub }) => {
+            use codex_core::ace::{AceCliHandler, AceCommand as CoreAceCommand};
+
+            // 加载配置获取codex_home
+            let cli_kv_overrides = root_config_overrides
+                .parse_overrides()
+                .map_err(anyhow::Error::msg)?;
+            let overrides = ConfigOverrides {
+                config_profile: interactive.config_profile.clone(),
+                ..Default::default()
+            };
+            let config = Config::load_with_cli_overrides(cli_kv_overrides, overrides).await?;
+
+            // 转换CLI命令到core命令
+            let core_cmd = match sub {
+                AceSubcommand::Status => CoreAceCommand::Status,
+                AceSubcommand::Show { limit } => CoreAceCommand::Show { limit },
+                AceSubcommand::Clear { no_archive } => CoreAceCommand::Clear { no_archive },
+                AceSubcommand::Search { query } => CoreAceCommand::Search {
+                    query: query.clone(),
+                },
+                AceSubcommand::Config => CoreAceCommand::Config,
+            };
+
+            // 执行命令
+            let handler = AceCliHandler::new(&config.codex_home);
+            handler.execute(core_cmd).await?;
+        }
     }
 
     Ok(())

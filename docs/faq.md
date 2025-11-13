@@ -32,7 +32,7 @@ Configure MCP servers through your `config.toml` using the examples in [Config -
 
 Confirm your setup in three steps:
 
-1. Walk through the auth flows in [Authentication](./authentication.md) to ensure the correct credentials are present in `~/.codex/auth.json`.
+1. Walk through the auth flows in [Authentication](./authentication.md) to ensure the correct credentials are present in `~/.codeACE/auth.json`.
 2. If you're on a headless or remote machine, make sure port-forwarding is configured as described in [Authentication -> Connecting on a "Headless" Machine](./authentication.md#connecting-on-a-headless-machine).
 
 ### Does it work on Windows?

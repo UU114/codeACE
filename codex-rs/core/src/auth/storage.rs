@@ -25,15 +25,15 @@ use codex_keyring_store::KeyringStore;
 #[serde(rename_all = "lowercase")]
 pub enum AuthCredentialsStoreMode {
     #[default]
-    /// Persist credentials in CODEX_HOME/auth.json.
+    /// Persist credentials in CODEACE_HOME/auth.json.
     File,
     /// Persist credentials in the keyring. Fail if unavailable.
     Keyring,
-    /// Use keyring when available; otherwise, fall back to a file in CODEX_HOME.
+    /// Use keyring when available; otherwise, fall back to a file in CODEACE_HOME.
     Auto,
 }
 
-/// Expected structure for $CODEX_HOME/auth.json.
+/// Expected structure for $CODEACE_HOME/auth.json.
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
 pub struct AuthDotJson {
     #[serde(rename = "OPENAI_API_KEY")]
@@ -75,7 +75,7 @@ impl FileAuthStorage {
         Self { codex_home }
     }
 
-    /// Attempt to read and refresh the `auth.json` file in the given `CODEX_HOME` directory.
+    /// Attempt to read and refresh the `auth.json` file in the given `CODEACE_HOME` directory.
     /// Returns the full AuthDotJson structure after refreshing if necessary.
     pub(super) fn try_read_auth_json(&self, auth_file: &Path) -> std::io::Result<AuthDotJson> {
         let mut file = File::open(auth_file)?;
@@ -122,7 +122,7 @@ impl AuthStorageBackend for FileAuthStorage {
     }
 }
 
-const KEYRING_SERVICE: &str = "Codex Auth";
+const KEYRING_SERVICE: &str = "CodeACE Auth";
 
 // turns codex_home path into a stable, short key string
 fn compute_store_key(codex_home: &Path) -> std::io::Result<String> {
@@ -461,11 +461,11 @@ mod tests {
 
     #[test]
     fn keyring_auth_storage_compute_store_key_for_home_directory() -> anyhow::Result<()> {
-        let codex_home = PathBuf::from("~/.codex");
+        let codex_home = PathBuf::from("~/.codeACE");
 
         let key = compute_store_key(codex_home.as_path())?;
 
-        assert_eq!(key, "cli|940db7b1d0e4eb40");
+        assert_eq!(key, "cli|32e3e8a007350754");
         Ok(())
     }
 

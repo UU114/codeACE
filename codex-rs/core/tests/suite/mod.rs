@@ -43,3 +43,8 @@ mod unified_exec;
 mod user_notification;
 mod user_shell_cmd;
 mod view_image;
+
+#[cfg(feature = "ace")]
+mod ace_e2e;
+#[cfg(feature = "ace")]
+mod ace_learning_test;

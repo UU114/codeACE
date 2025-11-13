@@ -141,7 +141,7 @@ pub struct Config {
     /// appends one extra argument containing a JSON payload describing the
     /// event.
     ///
-    /// Example `~/.codex/config.toml` snippet:
+    /// Example `~/.codeACE/config.toml` snippet:
     ///
     /// ```toml
     /// notify = ["notify-send", "Codex"]
@@ -178,7 +178,7 @@ pub struct Config {
     /// keyring: Use an OS-specific keyring service.
     ///          Credentials stored in the keyring will only be readable by Codex unless the user explicitly grants access via OS-level keyring access.
     ///          https://github.com/openai/codex/blob/main/codex-rs/rmcp-client/src/oauth.rs#L2
-    /// file: CODEX_HOME/.credentials.json
+    /// file: CODEACE_HOME/.credentials.json
     ///       This file will be readable to Codex and other applications running as the same user.
     /// auto (default): keyring if available, otherwise file.
     pub mcp_oauth_credentials_store_mode: OAuthCredentialsStoreMode,
@@ -192,11 +192,11 @@ pub struct Config {
     /// Additional filenames to try when looking for project-level docs.
     pub project_doc_fallback_filenames: Vec<String>,
 
-    /// Directory containing all Codex state (defaults to `~/.codex` but can be
-    /// overridden by the `CODEX_HOME` environment variable).
+    /// Directory containing all Codex state (defaults to `~/.codeACE` but can be
+    /// overridden by the `CODEACE_HOME` environment variable).
     pub codex_home: PathBuf,
 
-    /// Settings that govern if and what will be written to `~/.codex/history.jsonl`.
+    /// Settings that govern if and what will be written to `~/.codeACE/history.jsonl`.
     pub history: History,
 
     /// Optional URI-based file opener. If set, citations to files in the model
@@ -273,6 +273,8 @@ pub struct Config {
 
     /// OTEL configuration (exporter type, endpoint, headers, etc.).
     pub otel: crate::config::types::OtelConfig,
+    // 注意：ACE 配置已移至独立文件 ~/.codeACE/codeACE-config.toml
+    // 使用 crate::ace::ACEPlugin::from_codex_home() 自动加载
 }
 
 impl Config {
@@ -452,7 +454,7 @@ pub(crate) fn set_project_trusted_inner(
     Ok(())
 }
 
-/// Patch `CODEX_HOME/config.toml` project state.
+/// Patch `CODEACE_HOME/config.toml` project state.
 /// Use with caution.
 pub fn set_project_trusted(codex_home: &Path, project_path: &Path) -> anyhow::Result<()> {
     use crate::config::edit::ConfigEditsBuilder;
@@ -505,7 +507,7 @@ fn apply_toml_override(root: &mut TomlValue, path: &str, value: TomlValue) {
     }
 }
 
-/// Base config deserialized from ~/.codex/config.toml.
+/// Base config deserialized from ~/.codeACE/config.toml.
 #[derive(Deserialize, Debug, Clone, Default, PartialEq)]
 pub struct ConfigToml {
     /// Optional override of model selection.
@@ -595,7 +597,7 @@ pub struct ConfigToml {
     #[serde(default)]
     pub profiles: HashMap<String, ConfigProfile>,
 
-    /// Settings that govern if and what will be written to `~/.codex/history.jsonl`.
+    /// Settings that govern if and what will be written to `~/.codeACE/history.jsonl`.
     #[serde(default)]
     pub history: Option<History>,
 
@@ -660,6 +662,8 @@ pub struct ConfigToml {
     pub experimental_use_rmcp_client: Option<bool>,
     pub experimental_use_freeform_apply_patch: Option<bool>,
     pub experimental_sandbox_command_assessment: Option<bool>,
+    // 注意：ACE 配置已移至独立文件 ~/.codeACE/codeACE-config.toml
+    // 不再从 config.toml 读取
 }
 
 impl From<ConfigToml> for UserSavedConfig {
@@ -1183,6 +1187,8 @@ impl Config {
                     exporter,
                 }
             },
+            // 注意：ACE 配置已移至独立文件，在运行时通过
+            // ACEPlugin::from_codex_home() 加载
         };
         Ok(config)
     }
@@ -1245,17 +1251,17 @@ fn default_review_model() -> String {
 }
 
 /// Returns the path to the Codex configuration directory, which can be
-/// specified by the `CODEX_HOME` environment variable. If not set, defaults to
-/// `~/.codex`.
+/// specified by the `CODEACE_HOME` environment variable. If not set, defaults to
+/// `~/.codeACE`.
 ///
-/// - If `CODEX_HOME` is set, the value will be canonicalized and this
+/// - If `CODEACE_HOME` is set, the value will be canonicalized and this
 ///   function will Err if the path does not exist.
-/// - If `CODEX_HOME` is not set, this function does not verify that the
+/// - If `CODEACE_HOME` is not set, this function does not verify that the
 ///   directory exists.
 pub fn find_codex_home() -> std::io::Result<PathBuf> {
-    // Honor the `CODEX_HOME` environment variable when it is set to allow users
+    // Honor the `CODEACE_HOME` environment variable when it is set to allow users
     // (and tests) to override the default location.
-    if let Ok(val) = std::env::var("CODEX_HOME")
+    if let Ok(val) = std::env::var("CODEACE_HOME")
         && !val.is_empty()
     {
         return PathBuf::from(val).canonicalize();
@@ -1267,7 +1273,7 @@ pub fn find_codex_home() -> std::io::Result<PathBuf> {
             "Could not find home directory",
         )
     })?;
-    p.push(".codex");
+    p.push(".codeACE");
     Ok(p)
 }
 

@@ -56,7 +56,7 @@ async fn chat_mode_stream_cli() {
         .arg("-C")
         .arg(env!("CARGO_MANIFEST_DIR"))
         .arg("hello?");
-    cmd.env("CODEX_HOME", home.path())
+    cmd.env("CODEACE_HOME", home.path())
         .env("OPENAI_API_KEY", "dummy")
         .env("OPENAI_BASE_URL", format!("{}/v1", server.uri()));
 
@@ -148,7 +148,7 @@ async fn exec_cli_applies_experimental_instructions_file() {
         .arg("-C")
         .arg(env!("CARGO_MANIFEST_DIR"))
         .arg("hello?\n");
-    cmd.env("CODEX_HOME", home.path())
+    cmd.env("CODEACE_HOME", home.path())
         .env("OPENAI_API_KEY", "dummy")
         .env("OPENAI_BASE_URL", format!("{}/v1", server.uri()));
 
@@ -194,7 +194,7 @@ async fn responses_api_stream_cli() {
         .arg("-C")
         .arg(env!("CARGO_MANIFEST_DIR"))
         .arg("hello?");
-    cmd.env("CODEX_HOME", home.path())
+    cmd.env("CODEACE_HOME", home.path())
         .env("OPENAI_API_KEY", "dummy")
         .env("CODEX_RS_SSE_FIXTURE", fixture)
         .env("OPENAI_BASE_URL", "http://unused.local");
@@ -230,7 +230,7 @@ async fn integration_creates_and_checks_session_file() -> anyhow::Result<()> {
         .arg("-C")
         .arg(env!("CARGO_MANIFEST_DIR"))
         .arg(&prompt);
-    cmd.env("CODEX_HOME", home.path())
+    cmd.env("CODEACE_HOME", home.path())
         .env("OPENAI_API_KEY", "dummy")
         .env("CODEX_RS_SSE_FIXTURE", &fixture)
         // Required for CLI arg parsing even though fixture short-circuits network usage.
@@ -353,7 +353,7 @@ async fn integration_creates_and_checks_session_file() -> anyhow::Result<()> {
         .arg(&prompt2)
         .arg("resume")
         .arg("--last");
-    cmd2.env("CODEX_HOME", home.path())
+    cmd2.env("CODEACE_HOME", home.path())
         .env("OPENAI_API_KEY", "dummy")
         .env("CODEX_RS_SSE_FIXTURE", &fixture)
         .env("OPENAI_BASE_URL", "http://unused.local");

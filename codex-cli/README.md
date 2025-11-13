@@ -190,7 +190,7 @@ The hardening mechanism Codex uses depends on your OS:
 - **macOS 12+** - commands are wrapped with **Apple Seatbelt** (`sandbox-exec`).
 
   - Everything is placed in a read-only jail except for a small set of
-    writable roots (`$PWD`, `$TMPDIR`, `~/.codex`, etc.).
+    writable roots (`$PWD`, `$TMPDIR`, `~/.codeACE`, etc.).
   - Outbound network is _fully blocked_ by default - even if a child process
     tries to `curl` somewhere it will fail.
 
@@ -233,7 +233,7 @@ Key flags: `--model/-m`, `--approval-mode/-a`, `--quiet/-q`, and `--notify`.
 
 You can give Codex extra instructions and guidance using `AGENTS.md` files. Codex looks for `AGENTS.md` files in the following places, and merges them top-down:
 
-1. `~/.codex/AGENTS.md` - personal global guidance
+1. `~/.codeACE/AGENTS.md` - personal global guidance
 2. `AGENTS.md` at repo root - shared project notes
 3. `AGENTS.md` in the current working directory - sub-folder/feature specifics
 
@@ -332,7 +332,7 @@ pnpm link
 
 ## Configuration guide
 
-Codex configuration files can be placed in the `~/.codex/` directory, supporting both YAML and JSON formats.
+Codex configuration files can be placed in the `~/.codeACE/` directory, supporting both YAML and JSON formats.
 
 ### Basic configuration parameters
 
@@ -365,7 +365,7 @@ In the `history` object, you can configure conversation history settings:
 
 ### Configuration examples
 
-1. YAML format (save as `~/.codex/config.yaml`):
+1. YAML format (save as `~/.codeACE/config.yaml`):
 
 ```yaml
 model: o4-mini
@@ -374,7 +374,7 @@ fullAutoErrorMode: ask-user
 notify: true
 ```
 
-2. JSON format (save as `~/.codex/config.json`):
+2. JSON format (save as `~/.codeACE/config.json`):
 
 ```json
 {
@@ -455,7 +455,7 @@ Below is a comprehensive example of `config.json` with multiple custom providers
 
 ### Custom instructions
 
-You can create a `~/.codex/AGENTS.md` file to define custom guidance for the agent:
+You can create a `~/.codeACE/AGENTS.md` file to define custom guidance for the agent:
 
 ```markdown
 - Always respond with emojis

@@ -20,7 +20,7 @@ Key flags: `--model/-m`, `--ask-for-approval/-a`.
 
 - Run `codex resume` to display the session picker UI
 - Resume most recent: `codex resume --last`
-- Resume by id: `codex resume <SESSION_ID>` (You can get session ids from /status or `~/.codex/sessions/`)
+- Resume by id: `codex resume <SESSION_ID>` (You can get session ids from /status or `~/.codeACE/sessions/`)
 
 Examples:
 
@@ -63,7 +63,7 @@ Looking to reuse your own instructions? Create slash commands with [custom promp
 
 You can give Codex extra instructions and guidance using `AGENTS.md` files. Codex looks for them in the following places, and merges them top-down:
 
-1. `~/.codex/AGENTS.md` - personal global guidance
+1. `~/.codeACE/AGENTS.md` - personal global guidance
 2. Every directory from the repository root down to your current working directory (inclusive). In each directory, Codex first looks for `AGENTS.override.md` and uses it if present; otherwise it falls back to `AGENTS.md`. Use the override form when you want to replace inherited instructions for that directory.
 
 For more information on how to use AGENTS.md, see the [official AGENTS.md documentation](https://agents.md/).

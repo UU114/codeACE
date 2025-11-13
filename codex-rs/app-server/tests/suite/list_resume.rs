@@ -26,7 +26,7 @@ const DEFAULT_READ_TIMEOUT: std::time::Duration = std::time::Duration::from_secs
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn test_list_and_resume_conversations() -> Result<()> {
-    // Prepare a temporary CODEX_HOME with a few fake rollout files.
+    // Prepare a temporary CODEACE_HOME with a few fake rollout files.
     let codex_home = TempDir::new()?;
     create_fake_rollout(
         codex_home.path(),

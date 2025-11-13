@@ -53,6 +53,7 @@ edition = "2024"
 [workspace.dependencies]
 # Internal
 app_test_support = { path = "app-server/tests/common" }
+codex-ace = { path = "codex-ace" }
 codex-ansi-escape = { path = "ansi-escape" }
 codex-app-server = { path = "app-server" }
 codex-app-server-protocol = { path = "app-server-protocol" }

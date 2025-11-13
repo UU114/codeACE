@@ -38,9 +38,7 @@ pub struct HookManager {
 impl HookManager {
     /// 创建新的Hook管理器
     pub fn new() -> Self {
-        Self {
-            hooks: Vec::new(),
-        }
+        Self { hooks: Vec::new() }
     }
 
     /// 注册一个新的hook

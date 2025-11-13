@@ -1,0 +1,551 @@
+//! Storage for bullet-based playbook
+//!
+//! 支持增量更新（Delta merging）的 Playbook 存储系统。
+//! 使用 JSON 格式存储整个 Playbook，支持原地更新 bullets。
+
+use super::types::{Bullet, BulletSection, DeltaContext, Playbook};
+use anyhow::{Context, Result};
+use chrono::Utc;
+use std::path::{Path, PathBuf};
+use tokio::fs;
+
+/// Bullet-based Storage
+///
+/// 负责 Playbook 的持久化、加载和增量更新。
+pub struct BulletStorage {
+    /// Playbook 文件路径
+    playbook_path: PathBuf,
+
+    /// 归档目录
+    archive_dir: PathBuf,
+
+    /// 最大 bullets 数
+    max_bullets: usize,
+}
+
+impl BulletStorage {
+    /// 创建新的 storage
+    pub fn new(base_path: impl AsRef<Path>, max_bullets: usize) -> Result<Self> {
+        let base_path = base_path.as_ref();
+        let playbook_path = base_path.join("playbook.json");
+        let archive_dir = base_path.join("archive");
+
+        // 创建目录
+        std::fs::create_dir_all(base_path)?;
+        std::fs::create_dir_all(&archive_dir)?;
+
+        Ok(Self {
+            playbook_path,
+            archive_dir,
+            max_bullets,
+        })
+    }
+
+    /// 加载 playbook
+    pub async fn load_playbook(&self) -> Result<Playbook> {
+        if !self.playbook_path.exists() {
+            return Ok(Playbook::new());
+        }
+
+        let content = fs::read_to_string(&self.playbook_path)
+            .await
+            .context("Failed to read playbook file")?;
+
+        let playbook: Playbook =
+            serde_json::from_str(&content).context("Failed to parse playbook JSON")?;
+
+        tracing::debug!(
+            "Loaded playbook version {} with {} bullets",
+            playbook.version,
+            playbook.metadata.total_bullets
+        );
+
+        Ok(playbook)
+    }
+
+    /// 保存 playbook
+    pub async fn save_playbook(&self, playbook: &Playbook) -> Result<()> {
+        let json =
+            serde_json::to_string_pretty(playbook).context("Failed to serialize playbook")?;
+
+        fs::write(&self.playbook_path, json)
+            .await
+            .context("Failed to write playbook file")?;
+
+        tracing::debug!(
+            "Saved playbook version {} with {} bullets",
+            playbook.version,
+            playbook.metadata.total_bullets
+        );
+
+        Ok(())
+    }
+
+    /// **核心方法**: 合并 delta（增量更新）
+    ///
+    /// 这是 Bullet-based 架构的关键方法，支持：
+    /// - 添加新的 bullets
+    /// - 更新现有 bullets 的 metadata
+    /// - 自动归档（当超过限制时）
+    pub async fn merge_delta(&self, delta: DeltaContext) -> Result<()> {
+        if delta.is_empty() {
+            tracing::debug!("Delta is empty, skipping merge");
+            return Ok(());
+        }
+
+        // 加载现有 playbook
+        let mut playbook = self.load_playbook().await?;
+
+        tracing::info!(
+            "Merging delta: {} new bullets, {} updated bullets",
+            delta.new_bullets.len(),
+            delta.updated_bullets.len()
+        );
+
+        // 1. 添加新 bullets
+        for bullet in delta.new_bullets {
+            playbook.add_bullet(bullet);
+        }
+
+        // 2. 更新现有 bullets
+        for bullet in delta.updated_bullets {
+            if !playbook.update_bullet(bullet) {
+                tracing::warn!("Failed to update bullet (not found)");
+            }
+        }
+
+        // 3. 检查是否需要归档
+        if playbook.metadata.total_bullets > self.max_bullets {
+            self.auto_archive(&mut playbook).await?;
+        }
+
+        // 4. 保存
+        self.save_playbook(&playbook).await?;
+
+        tracing::info!(
+            "Delta merged successfully. Total bullets: {}",
+            playbook.metadata.total_bullets
+        );
+
+        Ok(())
+    }
+
+    /// 查询 bullets（用于 context loading）
+    ///
+    /// 使用简单的关键词匹配（MVP），按相关性分数排序。
+    pub async fn query_bullets(&self, query: &str, max_results: usize) -> Result<Vec<Bullet>> {
+        let playbook = self.load_playbook().await?;
+        let query_lower = query.to_lowercase();
+        let mut results = Vec::new();
+
+        // 简单的关键词匹配（MVP）
+        for bullets in playbook.bullets.values() {
+            for bullet in bullets {
+                let content_lower = bullet.content.to_lowercase();
+                let tags_str = bullet.tags.join(" ").to_lowercase();
+
+                // 计算相关性分数
+                let mut score = 0;
+
+                // 内容匹配
+                if content_lower.contains(&query_lower) {
+                    score += 3;
+                }
+
+                // 标签匹配
+                for keyword in query_lower.split_whitespace() {
+                    if tags_str.contains(keyword) {
+                        score += 2;
+                    }
+                }
+
+                // 工具匹配
+                for tool in &bullet.metadata.related_tools {
+                    if query_lower.contains(&tool.to_lowercase()) {
+                        score += 2;
+                    }
+                }
+
+                // 重要性加权
+                score += (bullet.metadata.importance * 10.0) as i32;
+
+                // 成功率加权
+                let success_rate = bullet.success_rate();
+                if success_rate > 0.7 {
+                    score += 2;
+                }
+
+                if score > 0 {
+                    results.push((bullet.clone(), score));
+                }
+            }
+        }
+
+        // 按分数排序
+        results.sort_by(|a, b| b.1.cmp(&a.1));
+
+        // 返回前 N 个
+        Ok(results
+            .into_iter()
+            .take(max_results)
+            .map(|(bullet, _)| bullet)
+            .collect())
+    }
+
+    /// 按 ID 查找 bullet
+    pub async fn find_bullet(&self, id: &str) -> Result<Option<Bullet>> {
+        let playbook = self.load_playbook().await?;
+        Ok(playbook.find_bullet(id).cloned())
+    }
+
+    /// 更新 bullet（单个）
+    pub async fn update_bullet(&self, bullet: Bullet) -> Result<bool> {
+        let mut playbook = self.load_playbook().await?;
+        let updated = playbook.update_bullet(bullet);
+
+        if updated {
+            self.save_playbook(&playbook).await?;
+        }
+
+        Ok(updated)
+    }
+
+    /// 自动归档旧 bullets
+    ///
+    /// 当 playbook 超过限制时，归档当前版本，并保留最新的一部分 bullets。
+    async fn auto_archive(&self, playbook: &mut Playbook) -> Result<()> {
+        tracing::info!(
+            "Auto-archiving: {} bullets exceed limit {}",
+            playbook.metadata.total_bullets,
+            self.max_bullets
+        );
+
+        // 生成归档文件名
+        let timestamp = Utc::now().format("%Y%m%d_%H%M%S");
+        let archive_path = self
+            .archive_dir
+            .join(format!("playbook_{}.json", timestamp));
+
+        // 保存当前 playbook 到归档
+        let json = serde_json::to_string_pretty(playbook)?;
+        fs::write(&archive_path, json).await?;
+
+        tracing::info!("Archived to: {}", archive_path.display());
+
+        // 清空当前 playbook（保留最近的一部分）
+        // MVP: 简单截断策略
+        let keep_ratio = 0.7; // 保留 70%
+        let keep_count = (self.max_bullets as f32 * keep_ratio) as usize;
+
+        // 按更新时间排序，保留最新的
+        let mut all_bullets: Vec<_> = playbook.bullets.values().flatten().cloned().collect();
+        all_bullets.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
+
+        // 重建 playbook
+        *playbook = Playbook::new();
+        for bullet in all_bullets.into_iter().take(keep_count) {
+            playbook.add_bullet(bullet);
+        }
+
+        tracing::info!(
+            "Archive completed: {} bullets retained",
+            playbook.metadata.total_bullets
+        );
+
+        Ok(())
+    }
+
+    /// 清空 playbook（归档）
+    pub async fn clear(&self) -> Result<()> {
+        // TODO: 实现归档逻辑
+        // 目前直接清空
+        let playbook = Playbook::new();
+        self.save_playbook(&playbook).await?;
+        tracing::info!("Playbook cleared");
+        Ok(())
+    }
+
+    /// 清空 playbook（不归档，直接删除）
+    pub async fn clear_without_archive(&self) -> Result<()> {
+        let playbook = Playbook::new();
+        self.save_playbook(&playbook).await?;
+        tracing::warn!("Playbook cleared without archive");
+        Ok(())
+    }
+
+    /// 获取统计信息
+    pub async fn get_stats(&self) -> Result<StorageStats> {
+        let playbook = self.load_playbook().await?;
+
+        let mut tool_usage = std::collections::HashMap::new();
+        let mut bullets_by_section = std::collections::HashMap::new();
+        let mut total_successes = 0;
+        let mut total_attempts = 0;
+        let mut sessions = std::collections::HashSet::new();
+
+        for bullet in playbook.all_bullets() {
+            // 统计工具使用
+            for tool in &bullet.metadata.related_tools {
+                *tool_usage.entry(tool.clone()).or_insert(0) += 1;
+            }
+
+            // 统计每个section的bullets数量
+            *bullets_by_section
+                .entry(bullet.section.clone())
+                .or_insert(0) += 1;
+
+            // 统计成功率
+            total_successes += bullet.metadata.success_count;
+            total_attempts += bullet.metadata.success_count + bullet.metadata.failure_count;
+
+            // 收集会话ID
+            sessions.insert(bullet.source_session_id.clone());
+        }
+
+        Ok(StorageStats {
+            total_bullets: playbook.metadata.total_bullets,
+            total_sessions: sessions.len(),
+            playbook_version: playbook.version,
+            total_sections: playbook.metadata.section_counts.len(),
+            bullets_by_section,
+            tool_usage,
+            overall_success_rate: if total_attempts > 0 {
+                total_successes as f32 / total_attempts as f32
+            } else {
+                0.0
+            },
+        })
+    }
+}
+
+/// 存储统计信息
+#[derive(Debug)]
+pub struct StorageStats {
+    pub total_bullets: usize,
+    pub total_sessions: usize,
+    pub playbook_version: u32,
+    pub total_sections: usize,
+    pub bullets_by_section: std::collections::HashMap<BulletSection, usize>,
+    pub tool_usage: std::collections::HashMap<String, usize>,
+    pub overall_success_rate: f32,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ace::types::BulletSection;
+    use tempfile::tempdir;
+
+    #[tokio::test]
+    async fn test_storage_basic_operations() {
+        let temp_dir = tempdir().unwrap();
+        let storage = BulletStorage::new(temp_dir.path(), 100).unwrap();
+
+        // 测试加载空 playbook
+        let playbook = storage.load_playbook().await.unwrap();
+        assert_eq!(playbook.metadata.total_bullets, 0);
+
+        // 测试保存和加载
+        let mut playbook = Playbook::new();
+        let bullet = Bullet::new(
+            BulletSection::StrategiesAndRules,
+            "Test strategy".to_string(),
+            "session-1".to_string(),
+        );
+        playbook.add_bullet(bullet);
+
+        storage.save_playbook(&playbook).await.unwrap();
+
+        let loaded = storage.load_playbook().await.unwrap();
+        assert_eq!(loaded.metadata.total_bullets, 1);
+    }
+
+    #[tokio::test]
+    async fn test_storage_merge_delta() {
+        let temp_dir = tempdir().unwrap();
+        let storage = BulletStorage::new(temp_dir.path(), 100).unwrap();
+
+        // 创建 delta
+        let bullet = Bullet::new(
+            BulletSection::ToolUsageTips,
+            "Test tool usage".to_string(),
+            "session-1".to_string(),
+        );
+
+        let mut delta = DeltaContext::new("session-1".to_string());
+        delta.new_bullets.push(bullet);
+        delta.metadata.new_bullets_count = 1;
+
+        // 合并
+        storage.merge_delta(delta).await.unwrap();
+
+        // 验证
+        let playbook = storage.load_playbook().await.unwrap();
+        assert_eq!(playbook.metadata.total_bullets, 1);
+    }
+
+    #[tokio::test]
+    async fn test_storage_query_bullets() {
+        let temp_dir = tempdir().unwrap();
+        let storage = BulletStorage::new(temp_dir.path(), 100).unwrap();
+
+        // 添加一些 bullets
+        let mut delta = DeltaContext::new("session-1".to_string());
+
+        let mut bullet1 = Bullet::new(
+            BulletSection::ToolUsageTips,
+            "使用 cargo test 运行测试".to_string(),
+            "session-1".to_string(),
+        );
+        bullet1.tags = vec!["testing".to_string(), "rust".to_string()];
+
+        let bullet2 = Bullet::new(
+            BulletSection::StrategiesAndRules,
+            "构建前先运行测试".to_string(),
+            "session-1".to_string(),
+        );
+
+        delta.new_bullets.push(bullet1);
+        delta.new_bullets.push(bullet2);
+
+        storage.merge_delta(delta).await.unwrap();
+
+        // 查询
+        let results = storage.query_bullets("测试", 10).await.unwrap();
+        assert_eq!(results.len(), 2);
+
+        // 更具体的查询
+        let results = storage.query_bullets("rust", 10).await.unwrap();
+        assert_eq!(results.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_storage_update_bullet() {
+        let temp_dir = tempdir().unwrap();
+        let storage = BulletStorage::new(temp_dir.path(), 100).unwrap();
+
+        // 添加 bullet
+        let bullet = Bullet::new(
+            BulletSection::General,
+            "Original content".to_string(),
+            "session-1".to_string(),
+        );
+
+        let bullet_id = bullet.id.clone();
+        let mut delta = DeltaContext::new("session-1".to_string());
+        delta.new_bullets.push(bullet);
+
+        storage.merge_delta(delta).await.unwrap();
+
+        // 更新 bullet
+        let mut updated_bullet = storage.find_bullet(&bullet_id).await.unwrap().unwrap();
+        updated_bullet.content = "Updated content".to_string();
+        updated_bullet.record_success();
+
+        let success = storage.update_bullet(updated_bullet).await.unwrap();
+        assert!(success);
+
+        // 验证更新
+        let loaded = storage.find_bullet(&bullet_id).await.unwrap().unwrap();
+        assert_eq!(loaded.content, "Updated content");
+        assert_eq!(loaded.metadata.success_count, 1);
+    }
+
+    #[tokio::test]
+    async fn test_storage_auto_archive() {
+        let temp_dir = tempdir().unwrap();
+        // 设置很小的限制以触发归档
+        let storage = BulletStorage::new(temp_dir.path(), 5).unwrap();
+
+        // 添加超过限制的 bullets
+        for i in 0..10 {
+            let bullet = Bullet::new(
+                BulletSection::General,
+                format!("Bullet {}", i),
+                format!("session-{}", i),
+            );
+
+            let mut delta = DeltaContext::new(format!("session-{}", i));
+            delta.new_bullets.push(bullet);
+
+            storage.merge_delta(delta).await.unwrap();
+        }
+
+        // 验证归档发生
+        let playbook = storage.load_playbook().await.unwrap();
+        // 应该保留大约 70% 的限制（3-4 个）
+        assert!(playbook.metadata.total_bullets <= 5);
+        assert!(playbook.metadata.total_bullets >= 3);
+
+        // 验证归档文件存在
+        let mut archive_files = Vec::new();
+        let mut entries = fs::read_dir(storage.archive_dir).await.unwrap();
+        while let Some(entry) = entries.next_entry().await.unwrap() {
+            archive_files.push(entry.path());
+        }
+        assert!(!archive_files.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_storage_stats() {
+        let temp_dir = tempdir().unwrap();
+        let storage = BulletStorage::new(temp_dir.path(), 100).unwrap();
+
+        // 添加一些 bullets
+        let mut delta = DeltaContext::new("session-1".to_string());
+
+        let mut bullet1 = Bullet::new(
+            BulletSection::ToolUsageTips,
+            "Use bash".to_string(),
+            "session-1".to_string(),
+        );
+        bullet1.metadata.related_tools = vec!["bash".to_string()];
+        bullet1.record_success();
+
+        let mut bullet2 = Bullet::new(
+            BulletSection::General,
+            "Use cargo".to_string(),
+            "session-1".to_string(),
+        );
+        bullet2.metadata.related_tools = vec!["cargo".to_string()];
+        bullet2.record_success();
+        bullet2.record_success();
+
+        delta.new_bullets.push(bullet1);
+        delta.new_bullets.push(bullet2);
+
+        storage.merge_delta(delta).await.unwrap();
+
+        // 获取统计
+        let stats = storage.get_stats().await.unwrap();
+        assert_eq!(stats.total_bullets, 2);
+        assert_eq!(stats.tool_usage.get("bash"), Some(&1));
+        assert_eq!(stats.tool_usage.get("cargo"), Some(&1));
+        assert_eq!(stats.overall_success_rate, 1.0); // 所有都成功
+    }
+
+    #[tokio::test]
+    async fn test_storage_clear() {
+        let temp_dir = tempdir().unwrap();
+        let storage = BulletStorage::new(temp_dir.path(), 100).unwrap();
+
+        // 添加 bullet
+        let bullet = Bullet::new(
+            BulletSection::General,
+            "Test".to_string(),
+            "session-1".to_string(),
+        );
+
+        let mut delta = DeltaContext::new("session-1".to_string());
+        delta.new_bullets.push(bullet);
+
+        storage.merge_delta(delta).await.unwrap();
+
+        // 清空
+        storage.clear().await.unwrap();
+
+        // 验证
+        let playbook = storage.load_playbook().await.unwrap();
+        assert_eq!(playbook.metadata.total_bullets, 0);
+    }
+}

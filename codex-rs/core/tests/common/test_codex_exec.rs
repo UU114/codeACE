@@ -14,7 +14,7 @@ impl TestCodexExecBuilder {
         let mut cmd = assert_cmd::Command::cargo_bin("codex-exec")
             .expect("should find binary for codex-exec");
         cmd.current_dir(self.cwd.path())
-            .env("CODEX_HOME", self.home.path())
+            .env("CODEACE_HOME", self.home.path())
             .env(CODEX_API_KEY_ENV_VAR, "dummy");
         cmd
     }

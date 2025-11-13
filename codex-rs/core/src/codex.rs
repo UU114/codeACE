@@ -135,14 +135,33 @@ use self::compact::collect_user_messages;
 
 // ACE Hook管理器初始化辅助函数
 #[cfg(feature = "ace")]
-fn init_ace_hook_manager() -> Option<Arc<crate::hooks::HookManager>> {
-    // TODO: 从配置文件加载ACE配置
-    // 暂时返回None，后续从config中初始化
-    None
+async fn init_ace_hook_manager(
+    codex_home: &std::path::Path,
+) -> Option<Arc<crate::hooks::HookManager>> {
+    use crate::ace::ACEPlugin;
+
+    // 从独立配置文件加载 ACE 配置（自动创建如果不存在）
+    // 配置文件路径：~/.codeACE/codeACE-config.toml
+    match ACEPlugin::from_codex_home(codex_home).await {
+        Ok(Some(plugin)) => {
+            let mut hook_manager = crate::hooks::HookManager::new();
+            hook_manager.register(Arc::new(plugin));
+            tracing::info!("✅ ACE plugin initialized successfully");
+            Some(Arc::new(hook_manager))
+        }
+        Ok(None) => {
+            tracing::info!("ACE is disabled in config");
+            None
+        }
+        Err(e) => {
+            tracing::warn!("Failed to initialize ACE plugin: {}", e);
+            None
+        }
+    }
 }
 
 #[cfg(not(feature = "ace"))]
-fn init_ace_hook_manager() -> Option<()> {
+async fn init_ace_hook_manager(_codex_home: &std::path::Path) -> Option<()> {
     None
 }
 
@@ -613,7 +632,7 @@ impl Session {
             otel_event_manager,
             tool_approvals: Mutex::new(ApprovalStore::default()),
             #[cfg(feature = "ace")]
-            hook_manager: init_ace_hook_manager(),
+            hook_manager: init_ace_hook_manager(&config.codex_home).await,
         };
 
         let sess = Arc::new(Session {
@@ -1753,6 +1772,34 @@ pub(crate) async fn run_task(
     if input.is_empty() {
         return None;
     }
+
+    // 提取用户查询文本（用于ACE）
+    let user_query_text = input
+        .iter()
+        .filter_map(|item| match item {
+            UserInput::Text { text } => Some(text.clone()),
+            _ => None,
+        })
+        .collect::<Vec<_>>()
+        .join(" ");
+
+    // ACE Hook: Pre-execute - 加载相关上下文
+    #[cfg(feature = "ace")]
+    let ace_context = {
+        if let Some(ref hook_manager) = sess.services.hook_manager {
+            if let Some(context) = hook_manager.call_pre_execute(&user_query_text) {
+                tracing::debug!("ACE loaded context: {} chars", context.len());
+                Some(context)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    };
+    #[cfg(not(feature = "ace"))]
+    let ace_context: Option<String> = None;
+
     let event = EventMsg::TaskStarted(TaskStartedEvent {
         model_context_window: turn_context.client.get_model_context_window(),
     });
@@ -1761,6 +1808,22 @@ pub(crate) async fn run_task(
     let initial_input_for_turn: ResponseInputItem = ResponseInputItem::from(input);
     sess.record_input_and_rollout_usermsg(turn_context.as_ref(), &initial_input_for_turn)
         .await;
+
+    // 如果有ACE上下文，将其作为系统消息添加到历史记录
+    if let Some(context) = ace_context {
+        let context_item = ResponseItem::Message {
+            id: None,
+            role: "system".to_string(),
+            content: vec![ContentItem::InputText {
+                text: format!(
+                    "📚 ACE Context (loaded from previous conversations):\n{}",
+                    context
+                ),
+            }],
+        };
+        sess.record_conversation_items(&turn_context, &[context_item])
+            .await;
+    }
 
     sess.maybe_start_ghost_snapshot(Arc::clone(&turn_context), cancellation_token.child_token())
         .await;
@@ -1876,6 +1939,19 @@ pub(crate) async fn run_task(
                 // let the user continue the conversation
                 break;
             }
+        }
+    }
+
+    // ACE Hook: Post-execute - 学习对话内容
+    #[cfg(feature = "ace")]
+    {
+        if let Some(ref hook_manager) = sess.services.hook_manager {
+            let response = last_agent_message.as_deref().unwrap_or("");
+            let success = !response.is_empty(); // 简单判断：有响应就算成功
+
+            // 异步调用post_execute，不等待完成
+            hook_manager.call_post_execute(&user_query_text, response, success);
+            tracing::debug!("ACE post-execute hook called for learning");
         }
     }
 

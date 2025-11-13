@@ -12,7 +12,7 @@ workspace = true
 
 [dependencies]
 # 核心依赖
-codex-core = { path = "../core", features = ["ace"] }
+codex-core = { path = "../core" }
 codex-protocol = { path = "../protocol" }
 
 # 异步运行时

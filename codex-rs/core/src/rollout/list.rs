@@ -150,7 +150,7 @@ pub(crate) async fn get_conversation(path: &Path) -> io::Result<String> {
 
 /// Load conversation file paths from disk using directory traversal.
 ///
-/// Directory layout: `~/.codex/sessions/YYYY/MM/DD/rollout-YYYY-MM-DDThh-mm-ss-<uuid>.jsonl`
+/// Directory layout: `~/.codeACE/sessions/YYYY/MM/DD/rollout-YYYY-MM-DDThh-mm-ss-<uuid>.jsonl`
 /// Returned newest (latest) first.
 async fn traverse_directories_for_paths(
     root: PathBuf,

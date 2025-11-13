@@ -24,7 +24,7 @@ The Rust implementation is now the maintained Codex CLI and serves as the defaul
 
 ### Config
 
-Codex supports a rich set of configuration options. Note that the Rust CLI uses `config.toml` instead of `config.json`. See [`docs/config.md`](../docs/config.md) for details.
+Codex supports a rich set of configuration options. Note that the Rust CLI uses `config.toml` instead of `config.json` (stored in `~/.codeACE/`). See [`docs/config.md`](../docs/config.md) for details.
 
 ### Model Context Protocol Support
 
@@ -86,7 +86,7 @@ codex --sandbox workspace-write
 codex --sandbox danger-full-access
 ```
 
-The same setting can be persisted in `~/.codex/config.toml` via the top-level `sandbox_mode = "MODE"` key, e.g. `sandbox_mode = "workspace-write"`.
+The same setting can be persisted in `~/.codeACE/config.toml` via the top-level `sandbox_mode = "MODE"` key, e.g. `sandbox_mode = "workspace-write"`.
 
 ## Code Organization
 
