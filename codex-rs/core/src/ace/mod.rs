@@ -5,6 +5,7 @@
 //! 基于 Agentic Context Engineering 论文实现，采用 Bullet-based 架构。
 
 pub mod cli;
+pub mod code_analyzer;
 pub mod config_loader;
 pub mod context;
 pub mod curator;
@@ -178,6 +179,95 @@ impl ACEPlugin {
             BulletSection::General => "General Knowledge",
         }
     }
+
+    /// Todo 完成时触发 Reflector
+    ///
+    /// 这个方法在 plan handler 检测到 Todo 完成时被调用，
+    /// 用于生成和存储相关的 Bullets。
+    ///
+    /// # 参数
+    /// - `todo_step`: Todo 的描述
+    /// - `conversation_context`: 完成该 Todo 的对话上下文
+    /// - `session_id`: 会话 ID
+    pub fn on_todo_completed(
+        &self,
+        todo_step: String,
+        conversation_context: String,
+        session_id: String,
+    ) {
+        if !self.enabled {
+            return;
+        }
+
+        let reflector = Arc::clone(&self.reflector);
+        let curator = Arc::clone(&self.curator);
+        let storage = Arc::clone(&self.storage);
+
+        // 异步执行学习过程（不阻塞主流程）
+        tokio::spawn(async move {
+            tracing::info!("🎯 Todo completed, triggering Reflector: {}", todo_step);
+
+            // 构造执行结果（Todo 完成场景）
+            let execution_result = ExecutionResult {
+                success: true,
+                output: Some(format!("Completed todo: {}", todo_step)),
+                error: None,
+                tools_used: Vec::new(),
+                errors: Vec::new(),
+                retry_success: false,
+            };
+
+            // 1. Reflector 分析
+            let insights = match reflector
+                .analyze_conversation(
+                    &format!("Todo: {}", todo_step),
+                    &conversation_context,
+                    &execution_result,
+                    session_id.clone(),
+                )
+                .await
+            {
+                Ok(insights) => insights,
+                Err(e) => {
+                    tracing::error!("Reflector failed for todo: {}", e);
+                    return;
+                }
+            };
+
+            if insights.is_empty() {
+                tracing::debug!("No insights extracted from todo completion");
+                return;
+            }
+
+            tracing::info!("Extracted {} insights from todo", insights.len());
+
+            // 2. Curator 生成 delta
+            let delta = match curator.process_insights(insights, session_id).await {
+                Ok(delta) => delta,
+                Err(e) => {
+                    tracing::error!("Curator failed for todo: {}", e);
+                    return;
+                }
+            };
+
+            if delta.is_empty() {
+                tracing::debug!("Delta is empty for todo");
+                return;
+            }
+
+            tracing::info!(
+                "Generated {} bullets from todo completion",
+                delta.new_bullets.len()
+            );
+
+            // 3. Storage 合并 delta
+            if let Err(e) = storage.merge_delta(delta).await {
+                tracing::error!("Failed to merge delta for todo: {}", e);
+            } else {
+                tracing::info!("✅ Todo completion learning completed");
+            }
+        });
+    }
 }
 
 /// 实现ExecutorHook trait
@@ -212,7 +302,10 @@ impl ExecutorHook for ACEPlugin {
                     }
                 }
             })
-        }).join().ok().flatten();
+        })
+        .join()
+        .ok()
+        .flatten();
 
         context.map(|bullets| self.format_bullets_as_context(bullets))
     }

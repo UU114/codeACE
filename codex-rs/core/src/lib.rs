@@ -89,6 +89,10 @@ pub mod hooks;
 #[cfg(feature = "ace")]
 pub mod ace;
 
+// Mission 模块（可选编译，依赖 ACE）
+#[cfg(feature = "ace")]
+pub mod mission;
+
 pub use apply_patch::CODEX_APPLY_PATCH_ARG1;
 pub use command_safety::is_safe_command;
 pub use safety::get_platform_sandbox;

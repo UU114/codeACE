@@ -141,20 +141,69 @@ impl ReflectorMVP {
         Ok(insights)
     }
 
-    /// 提取工具使用洞察
+    /// 提取工具使用洞察（增强版 - 带智能过滤）
     fn extract_tool_insights(
         &self,
         response: &str,
         context: &InsightContext,
     ) -> Result<Vec<RawInsight>> {
         let mut insights = Vec::new();
+        let mut found_command = false;
 
         // Bash 命令
         if let Some(regex) = self.patterns.get("tool_bash") {
             for cap in regex.captures_iter(response) {
                 if let Some(command) = cap.get(2) {
+                    let cmd = command.as_str();
+
+                    // 智能过滤：跳过查看类命令
+                    if Self::is_read_only_command(cmd) {
+                        continue;
+                    }
+
+                    // 检测是否为决策相关的命令（如安装、配置等）
+                    let importance = if Self::is_decision_command(cmd) {
+                        0.85 // 决策类命令更重要
+                    } else {
+                        0.7
+                    };
+
                     insights.push(RawInsight {
-                        content: format!("使用命令: {}", command.as_str()),
+                        content: format!("执行命令: {}", cmd),
+                        category: InsightCategory::ToolUsage,
+                        importance,
+                        context: context.clone(),
+                    });
+                    found_command = true;
+                }
+            }
+        }
+
+        // 回退：如果没有从文本提取到工具使用，但 tools_used 不为空，则从 tools_used 生成
+        if !found_command && !context.tools_used.is_empty() {
+            for tool in &context.tools_used {
+                insights.push(RawInsight {
+                    content: format!("使用工具: {}", tool),
+                    category: InsightCategory::ToolUsage,
+                    importance: 0.6,
+                    context: context.clone(),
+                });
+            }
+        }
+
+        // 文件操作（过滤读操作）
+        if let Some(regex) = self.patterns.get("tool_file") {
+            for cap in regex.captures_iter(response) {
+                if let (Some(action), Some(path)) = (cap.get(1), cap.get(3)) {
+                    let action_str = action.as_str().to_lowercase();
+
+                    // 过滤只读操作
+                    if action_str.contains("read") || action_str.contains("view") {
+                        continue;
+                    }
+
+                    insights.push(RawInsight {
+                        content: format!("文件操作: {} {}", action.as_str(), path.as_str()),
                         category: InsightCategory::ToolUsage,
                         importance: 0.7,
                         context: context.clone(),
@@ -163,21 +212,38 @@ impl ReflectorMVP {
             }
         }
 
-        // 文件操作
-        if let Some(regex) = self.patterns.get("tool_file") {
-            for cap in regex.captures_iter(response) {
-                if let (Some(action), Some(path)) = (cap.get(1), cap.get(3)) {
-                    insights.push(RawInsight {
-                        content: format!("文件操作: {} {}", action.as_str(), path.as_str()),
-                        category: InsightCategory::ToolUsage,
-                        importance: 0.6,
-                        context: context.clone(),
-                    });
-                }
+        Ok(insights)
+    }
+
+    /// 判断是否为只读命令（应该过滤）
+    fn is_read_only_command(cmd: &str) -> bool {
+        let cmd_lower = cmd.trim().to_lowercase();
+        let read_only_commands = [
+            "ls", "cat", "grep", "find", "head", "tail", "less", "more", "pwd", "which",
+            "whereis", "whoami", "echo", "printf", "tree", "file", "stat", "wc", "diff",
+        ];
+
+        // 检查命令开头
+        for ro_cmd in &read_only_commands {
+            if cmd_lower.starts_with(ro_cmd) {
+                return true;
             }
         }
 
-        Ok(insights)
+        false
+    }
+
+    /// 判断是否为决策类命令（安装、配置等，重要性高）
+    fn is_decision_command(cmd: &str) -> bool {
+        let cmd_lower = cmd.to_lowercase();
+        cmd_lower.contains("install")
+            || cmd_lower.contains("npm init")
+            || cmd_lower.contains("cargo new")
+            || cmd_lower.contains("git init")
+            || cmd_lower.contains("create-react-app")
+            || cmd_lower.contains("vue create")
+            || cmd_lower.starts_with("npm create")
+            || cmd_lower.starts_with("npx create")
     }
 
     /// 提取错误处理洞察
@@ -272,7 +338,7 @@ impl ReflectorMVP {
         Ok(insights)
     }
 
-    /// 提取代码片段洞察
+    /// 提取代码片段洞察（增强版 - 提取完整代码）
     fn extract_code_insights(
         &self,
         response: &str,
@@ -283,13 +349,132 @@ impl ReflectorMVP {
         // 代码块模式
         if let Some(regex) = self.patterns.get("code_block") {
             for cap in regex.captures_iter(response) {
-                if let Some(lang) = cap.get(1) {
-                    let lang_str = lang.as_str();
-                    if !lang_str.is_empty() {
+                let lang_str = cap.get(1).map(|m| m.as_str()).unwrap_or("");
+                let code_content = cap.get(2).map(|m| m.as_str()).unwrap_or("");
+
+                // 过滤空代码块或太短的代码块
+                if code_content.trim().len() < 10 {
+                    continue;
+                }
+
+                // 计算重要性：基于代码长度和语言
+                let line_count = code_content.lines().count();
+                let importance = if line_count > 20 {
+                    0.85 // 长代码片段更重要
+                } else if line_count > 5 {
+                    0.7
+                } else {
+                    0.5
+                };
+
+                // 生成描述性内容
+                let description = if !lang_str.is_empty() {
+                    format!(
+                        "{} 代码实现 ({} 行)",
+                        lang_str,
+                        line_count
+                    )
+                } else {
+                    format!("代码实现 ({} 行)", line_count)
+                };
+
+                // 创建包含完整代码的 insight
+                let content = format!(
+                    "{}\n\n```{}\n{}\n```",
+                    description, lang_str, code_content
+                );
+
+                insights.push(RawInsight {
+                    content,
+                    category: InsightCategory::Knowledge,
+                    importance,
+                    context: context.clone(),
+                });
+            }
+        }
+
+        // 提取技术决策信息
+        insights.extend(self.extract_decision_insights(response, context)?);
+
+        // 提取 API 调用信息
+        insights.extend(self.extract_api_insights(response, context)?);
+
+        Ok(insights)
+    }
+
+    /// 提取技术决策信息
+    ///
+    /// 识别"为什么选择 X"、"理由是"、"因为"等决策性描述
+    fn extract_decision_insights(
+        &self,
+        response: &str,
+        context: &InsightContext,
+    ) -> Result<Vec<RawInsight>> {
+        let mut insights = Vec::new();
+
+        // 技术决策关键词模式
+        let decision_patterns = [
+            (r"(?i)(选择|chose|using)\s+([a-zA-Z0-9\+\-\.]+).*?(因为|because|since|理由是|reason)[^\n]{10,200}", 0.9),
+            (r"(?i)(技术栈|tech stack|framework)[:：]\s*([^\n]{10,150})", 0.85),
+            (r"(?i)(决定|decided to|选用)\s+([^\n]{10,150})", 0.8),
+            (r"(?i)(推荐|recommend|建议)\s+(使用|use|用)\s+([a-zA-Z0-9\+\-\.]+).*?([^\n]{10,150})", 0.75),
+        ];
+
+        for (pattern_str, importance) in &decision_patterns {
+            if let Ok(pattern) = Regex::new(pattern_str) {
+                for cap in pattern.captures_iter(response) {
+                    if let Some(full_match) = cap.get(0) {
+                        let decision_text = full_match.as_str().trim();
+
+                        // 过滤太短的匹配
+                        if decision_text.len() < 15 {
+                            continue;
+                        }
+
                         insights.push(RawInsight {
-                            content: format!("包含 {} 代码片段", lang_str),
+                            content: format!("技术决策: {}", decision_text),
                             category: InsightCategory::Knowledge,
-                            importance: 0.5,
+                            importance: *importance,
+                            context: context.clone(),
+                        });
+                    }
+                }
+            }
+        }
+
+        Ok(insights)
+    }
+
+    /// 提取 API 调用信息
+    ///
+    /// 识别常见的 API 调用模式
+    fn extract_api_insights(
+        &self,
+        response: &str,
+        context: &InsightContext,
+    ) -> Result<Vec<RawInsight>> {
+        let mut insights = Vec::new();
+
+        // API 调用模式
+        let api_patterns = [
+            // fetch/axios 调用
+            r#"(?:fetch|axios)\s*\(\s*['"]([^'"]+)['"]"#,
+            // REST API 端点
+            r"(?:GET|POST|PUT|DELETE|PATCH)\s+(/[^\s\)]+)",
+            // GraphQL
+            r"(?:query|mutation)\s+(\w+)",
+        ];
+
+        for pattern_str in &api_patterns {
+            if let Ok(pattern) = Regex::new(pattern_str) {
+                for cap in pattern.captures_iter(response) {
+                    if let Some(api_match) = cap.get(1) {
+                        let api_info = api_match.as_str();
+
+                        insights.push(RawInsight {
+                            content: format!("API 调用: {}", api_info),
+                            category: InsightCategory::ToolUsage,
+                            importance: 0.75,
                             context: context.clone(),
                         });
                     }

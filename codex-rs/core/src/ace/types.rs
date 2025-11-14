@@ -37,11 +37,43 @@ pub struct Bullet {
     /// 具体内容（markdown 格式）
     pub content: String,
 
+    /// 代码内容（如果包含代码）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub code_content: Option<BulletCodeContent>,
+
     /// 元数据（细粒度跟踪）
     pub metadata: BulletMetadata,
 
     /// 关联的标签（用于检索）
     pub tags: Vec<String>,
+}
+
+/// 代码内容（分级保存）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum BulletCodeContent {
+    /// 完整代码（用于核心代码、小文件）
+    Full {
+        /// 编程语言
+        language: String,
+        /// 完整代码
+        code: String,
+        /// 文件路径（如果有）
+        #[serde(skip_serializing_if = "Option::is_none")]
+        file_path: Option<String>,
+    },
+
+    /// 摘要+引用（用于大文件、辅助代码）
+    Summary {
+        /// 编程语言
+        language: String,
+        /// 代码摘要（函数签名、关键类型等）
+        summary: String,
+        /// 文件路径
+        file_path: String,
+        /// 关键行号范围
+        #[serde(skip_serializing_if = "Option::is_none")]
+        key_lines: Option<Vec<(usize, usize)>>,
+    },
 }
 
 /// 分类（参考论文 Figure 3）
@@ -154,6 +186,7 @@ impl Bullet {
             source_session_id,
             section,
             content,
+            code_content: None,
             metadata: BulletMetadata::default(),
             tags: Vec::new(),
         }

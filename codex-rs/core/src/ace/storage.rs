@@ -144,7 +144,7 @@ impl BulletStorage {
                 let content_lower = bullet.content.to_lowercase();
                 let tags_str = bullet.tags.join(" ").to_lowercase();
 
-                // 计算相关性分数
+                // 计算相关性分数（只有基础匹配才计分）
                 let mut score = 0;
 
                 // 内容匹配
@@ -166,16 +166,17 @@ impl BulletStorage {
                     }
                 }
 
-                // 重要性加权
-                score += (bullet.metadata.importance * 10.0) as i32;
-
-                // 成功率加权
-                let success_rate = bullet.success_rate();
-                if success_rate > 0.7 {
-                    score += 2;
-                }
-
+                // 只有匹配到内容/标签/工具时，才应用重要性和成功率加权
                 if score > 0 {
+                    // 重要性加权
+                    score += (bullet.metadata.importance * 10.0) as i32;
+
+                    // 成功率加权
+                    let success_rate = bullet.success_rate();
+                    if success_rate > 0.7 {
+                        score += 2;
+                    }
+
                     results.push((bullet.clone(), score));
                 }
             }

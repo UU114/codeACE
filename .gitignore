@@ -100,3 +100,6 @@ test20*/
 
 # PDF files
 *.pdf
+
+# ACE 测试目录
+test20251114/

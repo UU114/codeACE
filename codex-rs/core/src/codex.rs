@@ -133,37 +133,34 @@ pub mod compact;
 use self::compact::build_compacted_history;
 use self::compact::collect_user_messages;
 
-// ACE Hook管理器初始化辅助函数
+// ACE 组件初始化辅助函数
 #[cfg(feature = "ace")]
-async fn init_ace_hook_manager(
+async fn init_ace_components(
     codex_home: &std::path::Path,
-) -> Option<Arc<crate::hooks::HookManager>> {
+) -> (Option<Arc<crate::hooks::HookManager>>, Option<Arc<crate::ace::ACEPlugin>>) {
     use crate::ace::ACEPlugin;
 
     // 从独立配置文件加载 ACE 配置（自动创建如果不存在）
     // 配置文件路径：~/.codeACE/codeACE-config.toml
     match ACEPlugin::from_codex_home(codex_home).await {
         Ok(Some(plugin)) => {
+            let plugin = Arc::new(plugin);
             let mut hook_manager = crate::hooks::HookManager::new();
-            hook_manager.register(Arc::new(plugin));
+            hook_manager.register(Arc::clone(&plugin) as Arc<dyn crate::hooks::ExecutorHook>);
             tracing::info!("✅ ACE plugin initialized successfully");
-            Some(Arc::new(hook_manager))
+            (Some(Arc::new(hook_manager)), Some(plugin))
         }
         Ok(None) => {
             tracing::info!("ACE is disabled in config");
-            None
+            (None, None)
         }
         Err(e) => {
             tracing::warn!("Failed to initialize ACE plugin: {}", e);
-            None
+            (None, None)
         }
     }
 }
 
-#[cfg(not(feature = "ace"))]
-async fn init_ace_hook_manager(_codex_home: &std::path::Path) -> Option<()> {
-    None
-}
 
 /// The high-level interface to the Codex system.
 /// It operates as a queue pair where you send submissions and receive events.
@@ -621,6 +618,9 @@ impl Session {
         // Create the mutable state for the Session.
         let state = SessionState::new(session_configuration.clone());
 
+        #[cfg(feature = "ace")]
+        let (ace_hook_manager, ace_plugin) = init_ace_components(&config.codex_home).await;
+
         let services = SessionServices {
             mcp_connection_manager,
             unified_exec_manager: UnifiedExecSessionManager::default(),
@@ -632,7 +632,11 @@ impl Session {
             otel_event_manager,
             tool_approvals: Mutex::new(ApprovalStore::default()),
             #[cfg(feature = "ace")]
-            hook_manager: init_ace_hook_manager(&config.codex_home).await,
+            hook_manager: ace_hook_manager,
+            #[cfg(feature = "ace")]
+            ace_plugin,
+            #[cfg(feature = "ace")]
+            mission_manager: Mutex::new(crate::mission::MissionManager::new()),
         };
 
         let sess = Arc::new(Session {
@@ -2640,6 +2644,10 @@ mod tests {
             tool_approvals: Mutex::new(ApprovalStore::default()),
             #[cfg(feature = "ace")]
             hook_manager: None,
+            #[cfg(feature = "ace")]
+            ace_plugin: None,
+            #[cfg(feature = "ace")]
+            mission_manager: Mutex::new(crate::mission::MissionManager::new()),
         };
 
         let turn_context = Session::make_turn_context(
@@ -2718,6 +2726,10 @@ mod tests {
             tool_approvals: Mutex::new(ApprovalStore::default()),
             #[cfg(feature = "ace")]
             hook_manager: None,
+            #[cfg(feature = "ace")]
+            ace_plugin: None,
+            #[cfg(feature = "ace")]
+            mission_manager: Mutex::new(crate::mission::MissionManager::new()),
         };
 
         let turn_context = Arc::new(Session::make_turn_context(

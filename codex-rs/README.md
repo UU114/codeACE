@@ -26,6 +26,22 @@ The Rust implementation is now the maintained Codex CLI and serves as the defaul
 
 Codex supports a rich set of configuration options. Note that the Rust CLI uses `config.toml` instead of `config.json` (stored in `~/.codeACE/`). See [`docs/config.md`](../docs/config.md) for details.
 
+### ACE (Agentic Context Engineering) - Automatic Knowledge Capture
+
+The Rust CLI includes an experimental ACE system that automatically captures and organizes knowledge from your development sessions into a personal "Playbook":
+
+- **Mission → TodoList → Tasks workflow**: Tracks high-level missions and their associated todos
+- **Automatic learning**: When you complete a todo, the system analyzes the conversation and extracts valuable insights:
+  - Code snippets and templates
+  - Technical decisions (why you chose a particular approach)
+  - Workflow patterns (testing, building, deployment)
+  - Error resolutions and troubleshooting tips
+- **Smart filtering**: Only captures meaningful operations, filtering out read-only commands like `ls`, `cat`, `grep`
+- **Code grading**: Small code blocks (<200 lines) are saved in full; larger blocks are intelligently summarized
+- **Structured storage**: Knowledge is organized into categories (Strategies, Tools, Troubleshooting, etc.) and saved to `~/.codeACE/ace/playbook.json`
+
+Enable ACE in your `config.toml` to start building your personal development knowledge base. See implementation details in `ref/FINAL-IMPLEMENTATION-REPORT.md`.
+
 ### Model Context Protocol Support
 
 #### MCP client

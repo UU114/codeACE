@@ -22,4 +22,10 @@ pub(crate) struct SessionServices {
     #[cfg(feature = "ace")]
     #[allow(dead_code)] // Hook功能暂未完全集成
     pub(crate) hook_manager: Option<Arc<crate::hooks::HookManager>>,
+    /// ACE Plugin 直接引用（用于 Mission/Todo 触发等高级功能）
+    #[cfg(feature = "ace")]
+    pub(crate) ace_plugin: Option<Arc<crate::ace::ACEPlugin>>,
+    /// Mission Manager（Mission → TodoList → Tasks 工作流）
+    #[cfg(feature = "ace")]
+    pub(crate) mission_manager: Mutex<crate::mission::MissionManager>,
 }

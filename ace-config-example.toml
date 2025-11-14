@@ -1,0 +1,44 @@
+# ACE (Agentic Coding Environment) 配置示例
+# 将此部分添加到 ~/.codeACE/config.toml 中以启用ACE功能
+
+[ace]
+# 是否启用ACE
+enabled = true
+
+# 存储路径（支持~扩展）
+storage_path = "~/.codeACE/ace_playbook"
+
+# 最大条目数（超过后自动归档）
+max_entries = 500
+
+# Reflector配置 - 智能提取设置
+[ace.reflector]
+# 是否提取代码模式
+extract_patterns = true
+
+# 是否提取工具使用
+extract_tools = true
+
+# 是否提取错误信息
+extract_errors = true
+
+# 上下文配置 - 加载历史知识设置
+[ace.context]
+# 最大上下文字符数
+max_context_chars = 3000
+
+# 最多加载多少个相关条目
+max_recent_entries = 5
+
+# 示例使用说明：
+# 1. 将上述配置添加到您的 ~/.codeACE/config.toml 文件中
+# 2. 使用 `cargo build --features ace` 构建带ACE支持的版本
+# 3. ACE将自动：
+#    - 在每次对话前加载相关的历史经验
+#    - 在对话后学习并存储有价值的知识
+#    - 随时间积累形成个性化的编程助手
+
+# 管理命令（待实现）：
+# codex ace status    - 查看ACE状态和统计
+# codex ace clear     - 清除所有学习数据
+# codex ace show <n>  - 显示最近n条学习记录

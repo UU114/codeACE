@@ -3,20 +3,26 @@
 //! Curator 接收 Reflector 输出的 RawInsights，将它们组织成
 //! 结构化的 Bullets，决定分类，生成元数据，并输出 DeltaContext。
 
+use super::code_analyzer::CodeAnalyzer;
 use super::types::{
-    Applicability, Bullet, BulletMetadata, BulletSection, CuratorConfig, DeltaContext,
-    InsightCategory, RawInsight, SourceType,
+    Applicability, Bullet, BulletCodeContent, BulletMetadata, BulletSection, CuratorConfig,
+    DeltaContext, InsightCategory, RawInsight, SourceType,
 };
 use anyhow::Result;
+use regex::Regex;
 
 /// Curator MVP - 将洞察组织成结构化 bullets
 pub struct CuratorMVP {
     config: CuratorConfig,
+    code_analyzer: CodeAnalyzer,
 }
 
 impl CuratorMVP {
     pub fn new(config: CuratorConfig) -> Self {
-        Self { config }
+        Self {
+            config,
+            code_analyzer: CodeAnalyzer::new(),
+        }
     }
 
     /// 处理 insights，生成 delta
@@ -63,6 +69,11 @@ impl CuratorMVP {
         // 创建 bullet
         let mut bullet = Bullet::new(section, insight.content.clone(), session_id.to_string());
 
+        // 提取并分析代码（如果有）
+        if let Some(code_content) = self.extract_and_analyze_code(&insight.content) {
+            bullet.code_content = Some(code_content);
+        }
+
         // 填充 metadata
         bullet.metadata = self.create_metadata(&insight)?;
 
@@ -72,6 +83,27 @@ impl CuratorMVP {
         }
 
         Ok(bullet)
+    }
+
+    /// 提取并分析代码内容
+    ///
+    /// 从 insight 内容中提取代码块，并使用 CodeAnalyzer 决定保存策略
+    fn extract_and_analyze_code(&self, content: &str) -> Option<BulletCodeContent> {
+        // 代码块正则
+        let code_block_regex = Regex::new(r"```(\w+)?\n([\s\S]+?)\n```").ok()?;
+
+        // 查找第一个代码块
+        if let Some(cap) = code_block_regex.captures(content) {
+            let language = cap.get(1).map(|m| m.as_str()).unwrap_or("").to_string();
+            let code = cap.get(2)?.as_str();
+
+            // 使用 CodeAnalyzer 分析代码
+            let analyzed = self.code_analyzer.analyze_code(&language, code, None);
+
+            return Some(analyzed);
+        }
+
+        None
     }
 
     /// 分类逻辑（规则based）
@@ -239,7 +271,10 @@ impl CuratorMVP {
 
 impl Default for CuratorMVP {
     fn default() -> Self {
-        Self::new(CuratorConfig::default())
+        Self {
+            config: CuratorConfig::default(),
+            code_analyzer: CodeAnalyzer::new(),
+        }
     }
 }
 

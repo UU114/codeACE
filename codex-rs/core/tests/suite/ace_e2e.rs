@@ -49,7 +49,11 @@ async fn test_hook_registration() -> Result<()> {
     hook_manager.register(Arc::new(plugin));
 
     // Post-execute应该不panic（学习过程是异步的）
-    hook_manager.call_post_execute("How to fix Rust errors?", "You should check the error message", true);
+    hook_manager.call_post_execute(
+        "How to fix Rust errors?",
+        "You should check the error message",
+        true,
+    );
 
     // 给学习过程一些时间
     tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
