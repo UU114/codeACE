@@ -128,7 +128,10 @@ impl CodeAnalyzer {
         }
 
         if summary.is_empty() {
-            format!("JavaScript/TypeScript 代码文件 ({} 行)", code.lines().count())
+            format!(
+                "JavaScript/TypeScript 代码文件 ({} 行)",
+                code.lines().count()
+            )
         } else {
             summary.join("\n")
         }
@@ -168,7 +171,10 @@ impl CodeAnalyzer {
                 || trimmed.starts_with("private ")
                 || trimmed.starts_with("protected ")
             {
-                if trimmed.contains('(') || trimmed.contains("class ") || trimmed.contains("interface ") {
+                if trimmed.contains('(')
+                    || trimmed.contains("class ")
+                    || trimmed.contains("interface ")
+                {
                     summary.push(line.to_string());
                 }
             }
@@ -326,7 +332,10 @@ mod tests {
     #[test]
     fn test_large_code_summary() {
         let analyzer = CodeAnalyzer::new();
-        let code = (0..250).map(|i| format!("line {}", i)).collect::<Vec<_>>().join("\n");
+        let code = (0..250)
+            .map(|i| format!("line {}", i))
+            .collect::<Vec<_>>()
+            .join("\n");
 
         let result = analyzer.analyze_code("rust", &code, Some("test.rs".to_string()));
 
@@ -367,7 +376,10 @@ fn helper() {
     #[test]
     fn test_config_file_full_save() {
         let analyzer = CodeAnalyzer::new();
-        let code = (0..250).map(|_| "config line").collect::<Vec<_>>().join("\n");
+        let code = (0..250)
+            .map(|_| "config line")
+            .collect::<Vec<_>>()
+            .join("\n");
 
         // 配置文件应该完整保存，即使很长
         assert!(analyzer.should_save_full("json", &code, Some("config.json")));

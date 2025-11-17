@@ -624,3 +624,128 @@ pub fn truncate_string(s: &str, max_len: usize) -> String {
         format!("{}...", &s[..max_len])
     }
 }
+
+// ============================================================================
+// 对话精华提取（Essence Extraction）
+// ============================================================================
+
+/// 一次对话的精华总结
+///
+/// 目标：压缩并提取精华，让历史上下文膨胀得慢一些
+/// 一次用户对话通常只生成一条精炼的 insight (200-800 字符)
+#[derive(Debug, Clone)]
+pub struct ConversationSummary {
+    /// 用户要求（原始 query）
+    pub user_request: String,
+
+    /// 任务类型
+    pub task_type: TaskType,
+
+    /// 最终状态
+    pub final_state: FinalState,
+
+    /// 提取的精华信息
+    pub essence: TaskEssence,
+}
+
+/// 任务类型
+#[derive(Debug, Clone, PartialEq)]
+pub enum TaskType {
+    /// 代码实现
+    CodeImplementation,
+
+    /// 问题修复
+    BugFix,
+
+    /// 测试运行
+    Testing,
+
+    /// 重构
+    Refactoring,
+
+    /// 配置修改
+    Configuration,
+
+    /// 文档编写
+    Documentation,
+
+    /// 其他
+    Other,
+}
+
+/// 最终状态
+#[derive(Debug, Clone)]
+pub enum FinalState {
+    /// 成功完成
+    Completed {
+        /// 简短总结（一句话）
+        summary: String,
+    },
+
+    /// 部分完成
+    PartiallyCompleted {
+        /// 完成了什么
+        completed: String,
+        /// 未完成什么
+        remaining: String,
+    },
+
+    /// 失败未解决
+    Failed {
+        /// 问题描述
+        problem: String,
+        /// 后续计划
+        next_steps: Vec<String>,
+    },
+}
+
+/// 任务精华（只保留最终结果）
+#[derive(Debug, Clone)]
+pub struct TaskEssence {
+    /// 做了什么（最终结果，不记录中间过程）
+    pub what_was_done: String,
+
+    /// 为什么这么做
+    pub why: Option<String>,
+
+    /// 最终代码（只保留最后成功的版本）
+    pub final_code: Vec<CodeBlock>,
+
+    /// 解决了什么问题
+    pub problem_solved: Option<String>,
+
+    /// 修改的文件
+    pub modified_files: Vec<String>,
+
+    /// 关键决策（只保留最后的决策）
+    pub key_decisions: Vec<String>,
+}
+
+/// 代码块（最终版本）
+#[derive(Debug, Clone)]
+pub struct CodeBlock {
+    /// 编程语言
+    pub language: String,
+
+    /// 代码内容
+    pub code: String,
+
+    /// 文件路径（如果有）
+    pub file_path: Option<String>,
+
+    /// 简短描述（如："异步函数实现，45 行"）
+    pub description: String,
+}
+
+/// 文件修改类型
+#[derive(Debug, Clone, PartialEq)]
+pub enum ModificationType {
+    /// 新建
+    Created,
+
+    /// 修改
+    Modified,
+
+    /// 删除
+    Deleted,
+}

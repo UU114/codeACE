@@ -41,7 +41,8 @@ mod ace_integration_tests {
         println!("🧪 场景 1: Rust 项目测试");
         let scenario1 = ConversationScenario {
             user_query: "运行项目的所有测试".to_string(),
-            assistant_response: "我将使用 `cargo test` 运行所有测试。这会编译并执行所有测试用例。".to_string(),
+            assistant_response: "我将使用 `cargo test` 运行所有测试。这会编译并执行所有测试用例。"
+                .to_string(),
             execution_result: ExecutionResult {
                 success: true,
                 tools_used: vec!["bash".to_string()],
@@ -240,7 +241,10 @@ CMD ["node", "server.js"]
         let playbook: serde_json::Value = serde_json::from_str(&playbook_content).unwrap();
 
         println!("✅ Playbook 版本: {}", playbook["version"]);
-        println!("✅ 总 Bullets 数: {}", playbook["metadata"]["total_bullets"]);
+        println!(
+            "✅ 总 Bullets 数: {}",
+            playbook["metadata"]["total_bullets"]
+        );
         println!(
             "✅ 分类统计: {}",
             serde_json::to_string_pretty(&playbook["metadata"]["section_counts"]).unwrap()
@@ -280,7 +284,10 @@ CMD ["node", "server.js"]
 
         // 验证不同分类
         let bullets_obj = playbook["bullets"].as_object().unwrap();
-        println!("✅ 生成的分类: {:?}\n", bullets_obj.keys().collect::<Vec<_>>());
+        println!(
+            "✅ 生成的分类: {:?}\n",
+            bullets_obj.keys().collect::<Vec<_>>()
+        );
 
         // 最后，将 playbook 复制到用户目录供查看
         let user_playbook = PathBuf::from("/home/com/codeACE/codex-rs/test20251114/playbook.json");
@@ -336,10 +343,7 @@ npm test
             println!("  类别: {:?}", insight.category);
             println!("  重要性: {:.2}", insight.importance);
             println!("  内容: {}", insight.content);
-            println!(
-                "  工具: {:?}",
-                insight.context.tools_used
-            );
+            println!("  工具: {:?}", insight.context.tools_used);
         }
 
         assert!(!insights.is_empty(), "应该生成至少一个 insight");

@@ -137,7 +137,10 @@ use self::compact::collect_user_messages;
 #[cfg(feature = "ace")]
 async fn init_ace_components(
     codex_home: &std::path::Path,
-) -> (Option<Arc<crate::hooks::HookManager>>, Option<Arc<crate::ace::ACEPlugin>>) {
+) -> (
+    Option<Arc<crate::hooks::HookManager>>,
+    Option<Arc<crate::ace::ACEPlugin>>,
+) {
     use crate::ace::ACEPlugin;
 
     // 从独立配置文件加载 ACE 配置（自动创建如果不存在）
@@ -160,7 +163,6 @@ async fn init_ace_components(
         }
     }
 }
-
 
 /// The high-level interface to the Codex system.
 /// It operates as a queue pair where you send submissions and receive events.

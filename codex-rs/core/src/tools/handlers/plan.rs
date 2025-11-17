@@ -164,10 +164,7 @@ async fn handle_mission_todos(
 
 /// 构建 Todo 完成的对话上下文
 #[cfg(feature = "ace")]
-fn build_todo_context(
-    args: &UpdatePlanArgs,
-    todo: &crate::mission::TodoItem,
-) -> String {
+fn build_todo_context(args: &UpdatePlanArgs, todo: &crate::mission::TodoItem) -> String {
     let mut context = String::new();
 
     // 添加 explanation（如果有）
