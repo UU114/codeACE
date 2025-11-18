@@ -55,7 +55,7 @@ impl AceCliHandler {
     }
 
     /// 处理 status 命令
-    async fn handle_status(&self) -> Result<()> {
+    pub async fn handle_status(&self) -> Result<()> {
         // 加载配置
         let config_loader = ACEConfigLoader::new(&self.codex_home);
         let config = config_loader
@@ -117,7 +117,7 @@ impl AceCliHandler {
     }
 
     /// 处理 show 命令
-    async fn handle_show(&self, limit: usize) -> Result<()> {
+    pub async fn handle_show(&self, limit: usize) -> Result<()> {
         // 加载配置
         let config_loader = ACEConfigLoader::new(&self.codex_home);
         let config = config_loader.load_or_create().await?;
@@ -192,7 +192,7 @@ impl AceCliHandler {
     }
 
     /// 处理 clear 命令
-    async fn handle_clear(&self, no_archive: bool) -> Result<()> {
+    pub async fn handle_clear(&self, no_archive: bool) -> Result<()> {
         // 加载配置
         let config_loader = ACEConfigLoader::new(&self.codex_home);
         let config = config_loader.load_or_create().await?;
@@ -248,7 +248,7 @@ impl AceCliHandler {
     }
 
     /// 处理 search 命令
-    async fn handle_search(&self, query: &str) -> Result<()> {
+    pub async fn handle_search(&self, query: &str) -> Result<()> {
         // 加载配置
         let config_loader = ACEConfigLoader::new(&self.codex_home);
         let config = config_loader.load_or_create().await?;
@@ -287,7 +287,7 @@ impl AceCliHandler {
     }
 
     /// 处理 config 命令
-    async fn handle_config(&self) -> Result<()> {
+    pub async fn handle_config(&self) -> Result<()> {
         let config_loader = ACEConfigLoader::new(&self.codex_home);
         let config = config_loader.load_or_create().await?;
 

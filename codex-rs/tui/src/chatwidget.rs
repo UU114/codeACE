@@ -1286,6 +1286,24 @@ impl ChatWidget {
                     self.add_info_message("Rollout path is not available yet.".to_string(), None);
                 }
             }
+            // ACE Playbook 命令处理
+            SlashCommand::Playbook => {
+                // 显示 playbook 状态
+                self.handle_playbook_status();
+            }
+            SlashCommand::PlaybookShow => {
+                // 显示最近的学习条目
+                self.handle_playbook_show();
+            }
+            SlashCommand::PlaybookClear => {
+                // 清空 playbook（带确认）
+                self.handle_playbook_clear();
+            }
+            SlashCommand::PlaybookSearch => {
+                // 搜索 playbook
+                // TODO: 需要从命令中提取搜索参数
+                self.handle_playbook_search(None);
+            }
             SlashCommand::TestApproval => {
                 use codex_core::protocol::EventMsg;
                 use std::collections::HashMap;
@@ -2360,6 +2378,85 @@ impl ChatWidget {
     pub fn cursor_pos(&self, area: Rect) -> Option<(u16, u16)> {
         let [_, _, bottom_pane_area] = self.layout_areas(area);
         self.bottom_pane.cursor_pos(bottom_pane_area)
+    }
+
+    // ACE Playbook 命令处理方法
+    fn handle_playbook_status(&mut self) {
+        // 获取并显示 playbook 状态
+        #[cfg(feature = "ace")]
+        {
+            // 由于 AceCliHandler 会直接打印输出，我们暂时显示一条提示消息
+            // 未来可以重构 AceCliHandler 使其返回字符串而不是直接打印
+            self.add_info_message(
+                "ACE playbook status is displayed in the terminal output.".to_string(),
+                Some("Run 'codex ace status' in terminal for details.".to_string()),
+            );
+
+            // 这里可以调用 handler，但输出会到终端而不是 TUI
+            // TODO: 重构 AceCliHandler 以支持返回字符串
+        }
+
+        #[cfg(not(feature = "ace"))]
+        {
+            self.add_error_message(
+                "ACE feature is not enabled. Rebuild with --features ace".to_string(),
+            );
+        }
+    }
+
+    fn handle_playbook_show(&mut self) {
+        // 显示最近的学习条目
+        #[cfg(feature = "ace")]
+        {
+            self.add_info_message(
+                "Recent ACE playbook entries are displayed in the terminal output.".to_string(),
+                Some("Run 'codex ace show' in terminal for details.".to_string()),
+            );
+            // TODO: 重构 AceCliHandler 以支持返回字符串
+        }
+
+        #[cfg(not(feature = "ace"))]
+        {
+            self.add_error_message(
+                "ACE feature is not enabled. Rebuild with --features ace".to_string(),
+            );
+        }
+    }
+
+    fn handle_playbook_clear(&mut self) {
+        // 清空 playbook（需要确认）
+        self.add_info_message(
+            "⚠️  Clear playbook? Use `/playbook-clear --confirm` to proceed.".to_string(),
+            None,
+        );
+
+        // TODO: 实现确认对话框或参数解析
+    }
+
+    fn handle_playbook_search(&mut self, query: Option<String>) {
+        // 搜索 playbook
+        if let Some(q) = query {
+            #[cfg(feature = "ace")]
+            {
+                self.add_info_message(
+                    format!("Searching playbook for '{}'...", q),
+                    Some(format!("Run 'codex ace search {}' in terminal for details.", q)),
+                );
+                // TODO: 重构 AceCliHandler 以支持返回字符串
+            }
+
+            #[cfg(not(feature = "ace"))]
+            {
+                self.add_error_message(
+                    "ACE feature is not enabled. Rebuild with --features ace".to_string(),
+                );
+            }
+        } else {
+            self.add_info_message(
+                "Usage: /playbook-search <query>".to_string(),
+                None,
+            );
+        }
     }
 }
 

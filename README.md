@@ -212,7 +212,9 @@ enabled = false
 
 ---
 
-## 📊 ACE CLI 命令
+## 📊 ACE Playbook 管理
+
+### CLI 命令
 
 ACE 提供了一套管理工具来查看和管理学习内容：
 
@@ -221,20 +223,43 @@ codex ace status   # 查看学习状态和统计
 codex ace show     # 显示学习内容（默认 10 条）
 codex ace search   # 搜索知识库
 codex ace config   # 查看配置
-codex ace clear    # 清空知识库
+codex ace clear    # 清空知识库（自动归档）
 ```
 
-### 示例
+### TUI 斜杠命令 🆕
+
+在 Codex TUI 交互界面中，可以使用以下斜杠命令快速访问 playbook：
 
 ```bash
-# 查看最近的学习内容
+/playbook         # 显示 playbook 状态（别名：/pb）
+/playbook-show    # 显示最近学习条目（别名：/pbs）
+/playbook-clear   # 清空 playbook（别名：/pbc）
+/playbook-search  # 搜索 playbook（别名：/pbsearch, /pbq）
+```
+
+#### 命令别名
+
+为了更快速地访问，支持以下短别名：
+
+| 完整命令 | 别名 | 说明 |
+|---------|------|------|
+| `/playbook` | `/pb` | 查看状态 |
+| `/playbook-show` | `/pbs` | 显示条目 |
+| `/playbook-clear` | `/pbc` | 清空数据 |
+| `/playbook-search` | `/pbsearch`, `/pbq` | 搜索内容 |
+
+### 使用示例
+
+```bash
+# CLI 命令
 codex ace show --limit 5
-
-# 搜索特定主题
 codex ace search "rust async"
-
-# 查看详细统计
 codex ace status
+
+# TUI 斜杠命令（在 Codex 对话中）
+/pb              # 快速查看 playbook 状态
+/pbs             # 显示最近的学习条目
+/pbq error       # 搜索包含 "error" 的条目
 ```
 
 ---

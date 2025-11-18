@@ -932,12 +932,19 @@ impl ChatComposer {
                 let first_line = self.textarea.text().lines().next().unwrap_or("");
                 if let Some((name, rest)) = parse_slash_name(first_line)
                     && rest.is_empty()
-                    && let Some((_n, cmd)) = built_in_slash_commands()
-                        .into_iter()
-                        .find(|(n, _)| *n == name)
                 {
-                    self.textarea.set_text("");
-                    return (InputResult::Command(cmd), true);
+                    // 首先尝试解析别名
+                    let resolved_name = crate::slash_command::resolve_command_alias(name)
+                        .unwrap_or(name);
+
+                    // 查找命令（使用解析后的名称）
+                    if let Some((_n, cmd)) = built_in_slash_commands()
+                        .into_iter()
+                        .find(|(n, _)| *n == resolved_name)
+                    {
+                        self.textarea.set_text("");
+                        return (InputResult::Command(cmd), true);
+                    }
                 }
                 // If we're in a paste-like burst capture, treat Enter as part of the burst
                 // and accumulate it rather than submitting or inserting immediately.

@@ -23,6 +23,11 @@ pub enum SlashCommand {
     Mention,
     Status,
     Mcp,
+    // ACE Playbook commands - 管理学习记录
+    Playbook,      // 显示 playbook 状态 (别名: /pb)
+    PlaybookShow,  // 显示最近学习条目 (别名: /pbs)
+    PlaybookClear, // 清空 playbook (别名: /pbc)
+    PlaybookSearch, // 搜索 playbook (别名: /pbsearch, /pbq)
     Logout,
     Quit,
     Exit,
@@ -48,6 +53,11 @@ impl SlashCommand {
             SlashCommand::Model => "choose what model and reasoning effort to use",
             SlashCommand::Approvals => "choose what Codex can do without approval",
             SlashCommand::Mcp => "list configured MCP tools",
+            // ACE Playbook 命令
+            SlashCommand::Playbook => "show ACE playbook status and statistics",
+            SlashCommand::PlaybookShow => "display recent learning entries",
+            SlashCommand::PlaybookClear => "clear all playbook entries (with archive)",
+            SlashCommand::PlaybookSearch => "search playbook for specific content",
             SlashCommand::Logout => "log out of Codex",
             SlashCommand::Rollout => "print the rollout file path",
             SlashCommand::TestApproval => "test approval request",
@@ -70,11 +80,15 @@ impl SlashCommand {
             | SlashCommand::Model
             | SlashCommand::Approvals
             | SlashCommand::Review
+            | SlashCommand::PlaybookClear  // 清空操作不应该在任务中执行
             | SlashCommand::Logout => false,
             SlashCommand::Diff
             | SlashCommand::Mention
             | SlashCommand::Status
             | SlashCommand::Mcp
+            | SlashCommand::Playbook       // 查看状态可以在任务中执行
+            | SlashCommand::PlaybookShow   // 显示条目可以在任务中执行
+            | SlashCommand::PlaybookSearch // 搜索可以在任务中执行
             | SlashCommand::Feedback
             | SlashCommand::Quit
             | SlashCommand::Exit => true,
@@ -97,4 +111,23 @@ pub fn built_in_slash_commands() -> Vec<(&'static str, SlashCommand)> {
         .filter(|command| command.is_visible())
         .map(|c| (c.command(), c))
         .collect()
+}
+
+/// 将命令别名映射到完整的命令名称
+pub fn resolve_command_alias(alias: &str) -> Option<&'static str> {
+    match alias {
+        // Playbook 别名
+        "pb" => Some("playbook"),
+        "pbs" => Some("playbook-show"),
+        "pbc" => Some("playbook-clear"),
+        "pbsearch" | "pbq" => Some("playbook-search"),
+        // 其他常用别名
+        "q" => Some("quit"),
+        "e" => Some("exit"),
+        "s" => Some("status"),
+        "m" => Some("model"),
+        "h" => Some("help"),
+        "n" => Some("new"),
+        _ => None,
+    }
 }

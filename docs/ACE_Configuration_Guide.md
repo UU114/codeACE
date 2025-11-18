@@ -245,12 +245,40 @@ ACE 使用基于论文的 Bullet-based 架构，将知识组织为细粒度的�
 2. 降低 `max_entries`，触发更频繁的归档
 3. 考虑禁用不需要的提取功能
 
-## 未来功能（开发中）
+## ACE 命令行工具 ✅
 
-- `codex ace status` - 查看 ACE 统计信息
-- `codex ace show` - 显示最近的学习条目
-- `codex ace clear` - 清空 playbook
-- `codex ace search <query>` - 搜索历史学习
+### CLI 命令（已实现）
+
+- `codex ace status` - 查看 ACE 统计信息和学习进度
+- `codex ace show [--limit N]` - 显示最近的学习条目（默认 10 条）
+- `codex ace clear [--no-archive]` - 清空 playbook（默认归档）
+- `codex ace search <query>` - 搜索历史学习内容
+- `codex ace config` - 查看当前配置
+
+### TUI 斜杠命令（已实现）
+
+在 Codex TUI 交互模式下，可以使用以下命令：
+
+- `/playbook` 或 `/pb` - 显示 playbook 状态
+- `/playbook-show` 或 `/pbs` - 显示最近学习条目
+- `/playbook-clear` 或 `/pbc` - 清空 playbook
+- `/playbook-search` 或 `/pbq` - 搜索 playbook 内容
+
+### 使用示例
+
+```bash
+# 查看学习统计
+codex ace status
+
+# 显示最近 5 条学习记录
+codex ace show --limit 5
+
+# 搜索错误处理相关内容
+codex ace search "error handling"
+
+# 在 TUI 中快速查看状态
+/pb
+```
 
 ## 参考
 

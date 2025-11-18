@@ -74,9 +74,13 @@ impl CommandPopup {
             let token = stripped.trim_start();
             let cmd_token = token.split_whitespace().next().unwrap_or("");
 
+            // 解析别名并使用解析后的命令名
+            let resolved_cmd = crate::slash_command::resolve_command_alias(cmd_token)
+                .unwrap_or(cmd_token);
+
             // Update the filter keeping the original case (commands are all
             // lower-case for now but this may change in the future).
-            self.command_filter = cmd_token.to_string();
+            self.command_filter = resolved_cmd.to_string();
         } else {
             // The composer no longer starts with '/'. Reset the filter so the
             // popup shows the *full* command list if it is still displayed
