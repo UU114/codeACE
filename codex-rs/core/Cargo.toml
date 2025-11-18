@@ -50,6 +50,7 @@ keyring = { workspace = true, features = [
     "linux-native-async-persistent",
     "windows-native",
 ] }
+lazy_static = { workspace = true }
 libc = { workspace = true }
 mcp-types = { workspace = true }
 os_info = { workspace = true }

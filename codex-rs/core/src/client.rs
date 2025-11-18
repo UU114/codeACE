@@ -29,6 +29,9 @@ use tracing::debug;
 use tracing::trace;
 use tracing::warn;
 
+#[cfg(debug_assertions)]
+use crate::llm_logger;
+
 use crate::AuthManager;
 use crate::auth::CodexAuth;
 use crate::chat_completions::AggregateStreamExt;
@@ -345,6 +348,12 @@ impl ModelClient {
                 .map(|v| v.to_str().unwrap_or_default().to_string());
         }
 
+        // 在 debug 模式下记录请求日志
+        #[cfg(debug_assertions)]
+        {
+            llm_logger::log_responses_request(request_id.clone(), payload_json.clone()).await;
+        }
+
         match res {
             Ok(resp) if resp.status().is_success() => {
                 let (tx_event, rx_event) = mpsc::channel::<Result<ResponseEvent>>(1600);
@@ -359,10 +368,13 @@ impl ModelClient {
                 }
 
                 // spawn task to process SSE
+                #[cfg(debug_assertions)]
+                let request_id_for_logger = request_id.clone();
+                let request_id_for_error = request_id.clone();
                 let stream = resp.bytes_stream().map_err(move |e| {
                     CodexErr::ResponseStreamFailed(ResponseStreamFailed {
                         source: e,
-                        request_id: request_id.clone(),
+                        request_id: request_id_for_error.clone(),
                     })
                 });
                 tokio::spawn(process_sse(
@@ -370,6 +382,8 @@ impl ModelClient {
                     tx_event,
                     self.provider.stream_idle_timeout(),
                     self.otel_event_manager.clone(),
+                    #[cfg(debug_assertions)]
+                    request_id_for_logger,
                 ));
 
                 Ok(ResponseStream { rx_event })
@@ -679,6 +693,7 @@ async fn process_sse<S>(
     tx_event: mpsc::Sender<Result<ResponseEvent>>,
     idle_timeout: Duration,
     otel_event_manager: OtelEventManager,
+    #[cfg(debug_assertions)] request_id: Option<String>,
 ) where
     S: Stream<Item = Result<Bytes>> + Unpin,
 {
@@ -755,6 +770,14 @@ async fn process_sse<S>(
 
         let raw = sse.data.clone();
         trace!("SSE event: {}", raw);
+
+        // 在 debug 模式下记录响应日志
+        #[cfg(debug_assertions)]
+        {
+            if let Ok(json_value) = serde_json::from_str::<Value>(&raw) {
+                llm_logger::log_responses_response(request_id.clone(), json_value).await;
+            }
+        }
 
         let event: SseEvent = match serde_json::from_str(&sse.data) {
             Ok(event) => event,
@@ -924,6 +947,8 @@ async fn stream_from_fixture(
         tx_event,
         provider.stream_idle_timeout(),
         otel_event_manager,
+        #[cfg(debug_assertions)]
+        None,
     ));
     Ok(ResponseStream { rx_event })
 }
@@ -1002,6 +1027,8 @@ mod tests {
             tx,
             provider.stream_idle_timeout(),
             otel_event_manager,
+            #[cfg(debug_assertions)]
+            None,
         ));
 
         let mut events = Vec::new();
@@ -1038,6 +1065,8 @@ mod tests {
             tx,
             provider.stream_idle_timeout(),
             otel_event_manager,
+            #[cfg(debug_assertions)]
+            None,
         ));
 
         let mut out = Vec::new();

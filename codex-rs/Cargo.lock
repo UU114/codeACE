@@ -1110,6 +1110,7 @@ dependencies = [
  "indexmap 2.12.0",
  "keyring",
  "landlock",
+ "lazy_static",
  "libc",
  "maplit",
  "mcp-types",

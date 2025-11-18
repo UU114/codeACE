@@ -100,3 +100,79 @@ If you don’t have the tool:
   let request = mock.single_request();
   // assert using request.function_call_output(call_id) or request.json_body() or other helpers.
   ```
+
+## 已知问题和修复历史
+
+### 任务链中断问题 (2025-01)
+
+**问题描述**：
+在某些情况下，AI 返回非工具调用的响应（如纯文本消息）后，任务会直接退出，导致无法继续多轮对话。这在 read-only sandbox 模式下尤其明显。
+
+**根本原因**：
+在 `codex-rs/core/src/codex.rs` 的主任务循环中，当 `process_items()` 返回空的 `responses` 列表时（即没有待执行的工具调用），代码会直接 `break` 退出循环，即使有其他内容（如 AI 消息）已被记录和处理。
+
+**修复方案**：
+1. **core/src/codex.rs (1916-1972行)**：改进空响应处理逻辑
+   - 检查 `items_to_record_in_conversation_history` 是否为空
+   - 如果有内容被记录但没有工具调用，发送 BackgroundEvent 通知客户端
+   - 继续循环等待用户输入，而不是直接退出
+
+2. **core/src/response_processing.rs**：增强错误处理和诊断
+   - 为不匹配的 ResponseItem 类型记录详细的诊断信息
+   - 发送 BackgroundEvent 通知客户端跳过的项
+   - 统计并报告跳过的项数量
+
+3. **core/src/safety.rs**：改进 read-only sandbox 反馈
+   - 在 `assess_patch_safety()` 中提前检测 read-only 策略
+   - 返回明确的错误消息，指导用户切换 sandbox 模式
+
+**预防措施**：
+- 在处理响应流时，始终区分"没有内容"和"没有待执行的工具调用"
+- 为所有可能的 ResponseItem 类型提供明确的处理路径
+- 在 read-only 模式下，提前验证操作的可行性
+
+## 功能增强历史
+
+### LLM 通信日志记录 (2025-11-18)
+
+**功能描述**：
+在 debug 编译模式下，自动记录所有与 LLM 的通信日志，包括请求和响应的完整原始数据。
+
+**实现细节**：
+1. **新增模块**：`codex-rs/core/src/llm_logger.rs`
+   - 使用 `#[cfg(debug_assertions)]` 条件编译，仅在 debug 模式下启用
+   - 采用 JSON Lines (JSONL) 格式，每天一个日志文件
+   - 日志文件路径：`~/.codeACE/debug_logs/llm_YYYY-MM-DD.jsonl`
+   - 异步写入，不阻塞主流程
+
+2. **集成点**：
+   - **Responses API** (`core/src/client.rs`):
+     - 第 354 行：记录请求数据
+     - 第 770-775 行：在 `process_sse()` 中记录每个 SSE 响应事件
+   - **Chat Completions API** (`core/src/chat_completions.rs`):
+     - 第 377-380 行：记录请求数据
+     - 第 591-594 行：在 `process_chat_sse()` 中记录每个 SSE 响应事件
+
+3. **日志格式**：
+   ```json
+   {
+     "timestamp": "2025-11-18T13:03:03.907251071+00:00",
+     "type": "request",
+     "api": "responses_api",
+     "request_id": "test-id-123",
+     "data": { ... }
+   }
+   ```
+
+4. **依赖变更**：
+   - 在 `codex-rs/core/Cargo.toml` 中添加了 `lazy_static` 依赖
+
+**使用说明**：
+- Debug 编译：`cargo build`（默认）或 `cargo build --profile dev`
+- Release 编译时，所有日志记录代码会被完全移除，零性能开销
+- 详细文档：见 `ref/llm-logger/README.md`
+
+**注意事项**：
+- 日志文件可能包含敏感信息，请妥善保管
+- 建议定期清理旧日志文件以节省磁盘空间
+- 在高频请求场景下可能有轻微性能影响

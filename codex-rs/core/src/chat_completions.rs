@@ -36,6 +36,9 @@ use tokio::time::timeout;
 use tracing::debug;
 use tracing::trace;
 
+#[cfg(debug_assertions)]
+use crate::llm_logger;
+
 /// Implementation for the classic Chat Completions API.
 pub(crate) async fn stream_chat_completions(
     prompt: &Prompt,
@@ -370,6 +373,12 @@ pub(crate) async fn stream_chat_completions(
             })
             .await;
 
+        // 在 debug 模式下记录请求日志
+        #[cfg(debug_assertions)]
+        {
+            llm_logger::log_chat_request(None, payload.clone()).await;
+        }
+
         match res {
             Ok(resp) if resp.status().is_success() => {
                 let (tx_event, rx_event) = mpsc::channel::<Result<ResponseEvent>>(1600);
@@ -384,6 +393,8 @@ pub(crate) async fn stream_chat_completions(
                     tx_event,
                     provider.stream_idle_timeout(),
                     otel_event_manager.clone(),
+                    #[cfg(debug_assertions)]
+                    None,
                 ));
                 return Ok(ResponseStream { rx_event });
             }
@@ -492,6 +503,7 @@ async fn process_chat_sse<S>(
     tx_event: mpsc::Sender<Result<ResponseEvent>>,
     idle_timeout: Duration,
     otel_event_manager: OtelEventManager,
+    #[cfg(debug_assertions)] _request_id: Option<String>,
 ) where
     S: Stream<Item = Result<Bytes>> + Unpin,
 {
@@ -576,6 +588,12 @@ async fn process_chat_sse<S>(
             Err(_) => continue,
         };
         trace!("chat_completions received SSE chunk: {chunk:?}");
+
+        // 在 debug 模式下记录响应日志
+        #[cfg(debug_assertions)]
+        {
+            llm_logger::log_chat_response(_request_id.clone(), chunk.clone()).await;
+        }
 
         let choice_opt = chunk.get("choices").and_then(|c| c.get(0));
 
