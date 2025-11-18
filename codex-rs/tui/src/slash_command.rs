@@ -24,9 +24,9 @@ pub enum SlashCommand {
     Status,
     Mcp,
     // ACE Playbook commands - 管理学习记录
-    Playbook,      // 显示 playbook 状态 (别名: /pb)
-    PlaybookShow,  // 显示最近学习条目 (别名: /pbs)
-    PlaybookClear, // 清空 playbook (别名: /pbc)
+    Playbook,       // 显示 playbook 状态 (别名: /pb)
+    PlaybookShow,   // 显示最近学习条目 (别名: /pbs)
+    PlaybookClear,  // 清空 playbook (别名: /pbc)
     PlaybookSearch, // 搜索 playbook (别名: /pbsearch, /pbq)
     Logout,
     Quit,

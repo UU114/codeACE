@@ -75,8 +75,8 @@ impl CommandPopup {
             let cmd_token = token.split_whitespace().next().unwrap_or("");
 
             // 解析别名并使用解析后的命令名
-            let resolved_cmd = crate::slash_command::resolve_command_alias(cmd_token)
-                .unwrap_or(cmd_token);
+            let resolved_cmd =
+                crate::slash_command::resolve_command_alias(cmd_token).unwrap_or(cmd_token);
 
             // Update the filter keeping the original case (commands are all
             // lower-case for now but this may change in the future).

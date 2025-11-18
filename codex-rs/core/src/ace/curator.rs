@@ -4,10 +4,16 @@
 //! 结构化的 Bullets，决定分类，生成元数据，并输出 DeltaContext。
 
 use super::code_analyzer::CodeAnalyzer;
-use super::types::{
-    Applicability, Bullet, BulletCodeContent, BulletMetadata, BulletSection, CuratorConfig,
-    DeltaContext, InsightCategory, RawInsight, SourceType,
-};
+use super::types::Applicability;
+use super::types::Bullet;
+use super::types::BulletCodeContent;
+use super::types::BulletMetadata;
+use super::types::BulletSection;
+use super::types::CuratorConfig;
+use super::types::DeltaContext;
+use super::types::InsightCategory;
+use super::types::RawInsight;
+use super::types::SourceType;
 use anyhow::Result;
 use regex::Regex;
 

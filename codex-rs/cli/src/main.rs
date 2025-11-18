@@ -577,7 +577,8 @@ async fn cli_main(codex_linux_sandbox_exe: Option<PathBuf>) -> anyhow::Result<()
         },
         #[cfg(feature = "ace")]
         Some(Subcommand::Ace { sub }) => {
-            use codex_core::ace::{AceCliHandler, AceCommand as CoreAceCommand};
+            use codex_core::ace::AceCliHandler;
+            use codex_core::ace::AceCommand as CoreAceCommand;
 
             // 加载配置获取codex_home
             let cli_kv_overrides = root_config_overrides

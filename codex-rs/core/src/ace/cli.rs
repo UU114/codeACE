@@ -2,8 +2,10 @@
 //!
 //! 提供用户管理 ACE playbook 的命令行接口。
 
-use anyhow::{Context, Result};
-use std::path::{Path, PathBuf};
+use anyhow::Context;
+use anyhow::Result;
+use std::path::Path;
+use std::path::PathBuf;
 
 use super::config_loader::ACEConfigLoader;
 use super::storage::BulletStorage;
@@ -224,7 +226,8 @@ impl AceCliHandler {
         }
 
         print!("\nAre you sure? [y/N] ");
-        use std::io::{self, Write};
+        use std::io::Write;
+        use std::io::{self};
         io::stdout().flush()?;
 
         let mut input = String::new();

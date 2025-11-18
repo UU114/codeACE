@@ -53,7 +53,8 @@ impl ReflectorMVP {
 
         patterns.insert(
             "tool_file".to_string(),
-            Regex::new(r"(?i)(read|write|edit|create|modify)\s+(file|path)?\s*[:\s]+([^\s\n]+)").unwrap(),
+            Regex::new(r"(?i)(read|write|edit|create|modify)\s+(file|path)?\s*[:\s]+([^\s\n]+)")
+                .unwrap(),
         );
 
         // 代码块模式
@@ -96,10 +97,7 @@ impl ReflectorMVP {
         assistant_response: &str,
         execution_result: &ExecutionResult,
     ) -> Result<PlaybookEntry> {
-        let mut entry = PlaybookEntry::new(
-            user_query.to_string(),
-            assistant_response.to_string(),
-        );
+        let mut entry = PlaybookEntry::new(user_query.to_string(), assistant_response.to_string());
 
         entry.session_id = Uuid::new_v4().to_string();
         entry.execution_success = execution_result.success;
@@ -131,11 +129,7 @@ impl ReflectorMVP {
     }
 
     /// 提取工具使用洞察
-    fn extract_tool_insights(
-        &self,
-        entry: &mut PlaybookEntry,
-        response: &str,
-    ) -> Result<()> {
+    fn extract_tool_insights(&self, entry: &mut PlaybookEntry, response: &str) -> Result<()> {
         // Bash/Shell命令提取
         if let Some(regex) = self.patterns.get("tool_bash") {
             for cap in regex.captures_iter(response) {
@@ -192,9 +186,10 @@ impl ReflectorMVP {
 
             // 如果后续成功了，记录为成功的解决策略
             if result.retry_success {
-                entry.learned_strategies.push(
-                    format!("解决错误 '{}' 的方法: 查看助手响应", truncate_string(error, 100))
-                );
+                entry.learned_strategies.push(format!(
+                    "解决错误 '{}' 的方法: 查看助手响应",
+                    truncate_string(error, 100)
+                ));
             }
         }
 
@@ -243,11 +238,12 @@ impl ReflectorMVP {
         }
 
         // 组合模式识别
-        if entry.patterns.contains(&"测试执行".to_string()) &&
-           entry.patterns.contains(&"构建流程".to_string()) {
-            entry.learned_strategies.push(
-                "测试驱动开发流程：先测试后构建".to_string()
-            );
+        if entry.patterns.contains(&"测试执行".to_string())
+            && entry.patterns.contains(&"构建流程".to_string())
+        {
+            entry
+                .learned_strategies
+                .push("测试驱动开发流程：先测试后构建".to_string());
         }
 
         Ok(())

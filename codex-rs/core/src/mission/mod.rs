@@ -9,4 +9,6 @@ pub mod manager;
 pub mod types;
 
 pub use manager::MissionManager;
-pub use types::{MissionContext, MissionStatus, TodoItem};
+pub use types::MissionContext;
+pub use types::MissionStatus;
+pub use types::TodoItem;

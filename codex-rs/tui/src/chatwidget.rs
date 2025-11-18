@@ -2440,7 +2440,10 @@ impl ChatWidget {
             {
                 self.add_info_message(
                     format!("Searching playbook for '{}'...", q),
-                    Some(format!("Run 'codex ace search {}' in terminal for details.", q)),
+                    Some(format!(
+                        "Run 'codex ace search {}' in terminal for details.",
+                        q
+                    )),
                 );
                 // TODO: 重构 AceCliHandler 以支持返回字符串
             }
@@ -2452,10 +2455,7 @@ impl ChatWidget {
                 );
             }
         } else {
-            self.add_info_message(
-                "Usage: /playbook-search <query>".to_string(),
-                None,
-            );
+            self.add_info_message("Usage: /playbook-search <query>".to_string(), None);
         }
     }
 }

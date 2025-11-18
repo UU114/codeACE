@@ -44,10 +44,7 @@ impl ACEPlugin {
         let storage_path = PathBuf::from(storage_path);
 
         // 创建存储管理器
-        let storage = Arc::new(SimpleStorage::new(
-            &storage_path,
-            config.max_entries,
-        ));
+        let storage = Arc::new(SimpleStorage::new(&storage_path, config.max_entries));
 
         // 创建Reflector
         let reflector_config = ReflectorConfig {
@@ -140,8 +137,16 @@ impl ExecutorHook for ACEPlugin {
         // 创建执行结果（简化版）
         let execution_result = ExecutionResult {
             success,
-            output: if success { Some(response.to_string()) } else { None },
-            error: if !success { Some("Execution failed".to_string()) } else { None },
+            output: if success {
+                Some(response.to_string())
+            } else {
+                None
+            },
+            error: if !success {
+                Some("Execution failed".to_string())
+            } else {
+                None
+            },
             tools_used: Vec::new(), // TODO: 从响应中提取
             errors: Vec::new(),
             retry_success: false,
@@ -179,9 +184,9 @@ impl ExecutorHook for ACEPlugin {
     }
 }
 
-// CLI命令支持（可选）
-#[cfg(feature = "cli")]
-pub mod cli;
+// TODO: CLI命令支持（待实现）
+// #[cfg(feature = "cli")]
+// pub mod cli;
 
 #[cfg(test)]
 mod tests {

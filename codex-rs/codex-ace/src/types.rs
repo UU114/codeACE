@@ -69,10 +69,10 @@ impl PlaybookEntry {
 
     /// 判断是否为有价值的条目
     pub fn is_valuable(&self) -> bool {
-        !self.insights.is_empty() ||
-        !self.patterns.is_empty() ||
-        !self.learned_strategies.is_empty() ||
-        self.execution_success
+        !self.insights.is_empty()
+            || !self.patterns.is_empty()
+            || !self.learned_strategies.is_empty()
+            || self.execution_success
     }
 }
 

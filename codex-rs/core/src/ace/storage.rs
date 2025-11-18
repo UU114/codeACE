@@ -3,10 +3,15 @@
 //! 支持增量更新（Delta merging）的 Playbook 存储系统。
 //! 使用 JSON 格式存储整个 Playbook，支持原地更新 bullets。
 
-use super::types::{Bullet, BulletSection, DeltaContext, Playbook};
-use anyhow::{Context, Result};
+use super::types::Bullet;
+use super::types::BulletSection;
+use super::types::DeltaContext;
+use super::types::Playbook;
+use anyhow::Context;
+use anyhow::Result;
 use chrono::Utc;
-use std::path::{Path, PathBuf};
+use std::path::Path;
+use std::path::PathBuf;
 use tokio::fs;
 
 /// Bullet-based Storage

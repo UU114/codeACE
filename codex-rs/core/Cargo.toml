@@ -12,7 +12,8 @@ path = "src/lib.rs"
 workspace = true
 
 [features]
-# ACE框架支持（可选特性，由上层应用启用）
+# ACE框架支持（默认启用）
+default = ["ace"]
 ace = ["dep:regex", "dep:shellexpand"]
 
 [dependencies]

@@ -28,7 +28,9 @@ Codex supports a rich set of configuration options. Note that the Rust CLI uses 
 
 ### ACE (Agentic Context Engineering) - Automatic Knowledge Capture
 
-The Rust CLI includes an experimental ACE system that automatically captures and organizes knowledge from your development sessions into a personal "Playbook":
+The Rust CLI includes an experimental ACE system that automatically captures and organizes knowledge from your development sessions into a personal "Playbook". **ACE is now compiled by default** - no need to manually specify `--features ace` when building.
+
+Key features:
 
 - **Mission → TodoList → Tasks workflow**: Tracks high-level missions and their associated todos
 - **Automatic learning**: When you complete a todo, the system analyzes the conversation and extracts valuable insights:
@@ -40,7 +42,14 @@ The Rust CLI includes an experimental ACE system that automatically captures and
 - **Code grading**: Small code blocks (<200 lines) are saved in full; larger blocks are intelligently summarized
 - **Structured storage**: Knowledge is organized into categories (Strategies, Tools, Troubleshooting, etc.) and saved to `~/.codeACE/ace/playbook.json`
 
-Enable ACE in your `config.toml` to start building your personal development knowledge base. See implementation details in `ref/FINAL-IMPLEMENTATION-REPORT.md`.
+**Build & Run:**
+```bash
+# ACE is included by default - just build and run
+cargo build
+cargo run --bin codex
+```
+
+Enable ACE at runtime in your `config.toml` to start building your personal development knowledge base. See implementation details in `ref/FINAL-IMPLEMENTATION-REPORT.md`.
 
 ### Model Context Protocol Support
 

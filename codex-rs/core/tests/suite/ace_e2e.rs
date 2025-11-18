@@ -3,7 +3,10 @@
 //! 测试ACE的核心功能：配置加载、CLI命令、存储基本操作
 
 use anyhow::Result;
-use codex_core::ace::{ACEPlugin, AceCliHandler, AceCommand, BulletStorage};
+use codex_core::ace::ACEPlugin;
+use codex_core::ace::AceCliHandler;
+use codex_core::ace::AceCommand;
+use codex_core::ace::BulletStorage;
 use std::sync::Arc;
 use tempfile::TempDir;
 

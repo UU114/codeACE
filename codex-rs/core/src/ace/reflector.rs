@@ -2,7 +2,10 @@
 //!
 //! 基于规则的模式提取，输出未结构化的 RawInsights。
 
-use super::types::{ExecutionResult, InsightCategory, InsightContext, RawInsight};
+use super::types::ExecutionResult;
+use super::types::InsightCategory;
+use super::types::InsightContext;
+use super::types::RawInsight;
 use anyhow::Result;
 use regex::Regex;
 use std::collections::HashMap;
@@ -965,7 +968,8 @@ impl ReflectorMVP {
     /// 根据任务类型选择合适的模板
     /// 目标：200-800 字符的精炼内容
     pub fn generate_insight_content(&self, summary: &super::types::ConversationSummary) -> String {
-        use super::types::{FinalState, TaskType};
+        use super::types::FinalState;
+        use super::types::TaskType;
 
         match summary.task_type {
             TaskType::CodeImplementation => self.build_code_implementation_content(summary),

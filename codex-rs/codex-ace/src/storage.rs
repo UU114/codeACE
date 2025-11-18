@@ -69,8 +69,7 @@ impl SimpleStorage {
         self.init().await?;
 
         // 序列化为JSON
-        let json_line = serde_json::to_string(entry)
-            .context("Failed to serialize entry")?;
+        let json_line = serde_json::to_string(entry).context("Failed to serialize entry")?;
 
         // 追加到文件
         let mut file = OpenOptions::new()
@@ -159,10 +158,7 @@ impl SimpleStorage {
             // 重新创建文件，保留最近的一半条目
             let keep_count = self.max_entries / 2;
             let skip_count = entries.len().saturating_sub(keep_count);
-            let recent_entries = entries
-                .into_iter()
-                .skip(skip_count)
-                .collect::<Vec<_>>();
+            let recent_entries = entries.into_iter().skip(skip_count).collect::<Vec<_>>();
 
             for entry in recent_entries {
                 self.write_entry_internal(&entry).await?;
@@ -179,10 +175,7 @@ impl SimpleStorage {
         let entries = self.load_all().await?;
         let total_entries = entries.len();
 
-        let success_count = entries
-            .iter()
-            .filter(|e| e.execution_success)
-            .count();
+        let success_count = entries.iter().filter(|e| e.execution_success).count();
 
         let mut tool_counts = std::collections::HashMap::new();
         for entry in &entries {
@@ -211,11 +204,15 @@ impl SimpleStorage {
         let matches = entries
             .into_iter()
             .filter(|entry| {
-                entry.user_query.to_lowercase().contains(&query_lower) ||
-                entry.tags.iter().any(|tag| tag.to_lowercase().contains(&query_lower)) ||
-                entry.insights.iter().any(|insight| {
-                    insight.content.to_lowercase().contains(&query_lower)
-                })
+                entry.user_query.to_lowercase().contains(&query_lower)
+                    || entry
+                        .tags
+                        .iter()
+                        .any(|tag| tag.to_lowercase().contains(&query_lower))
+                    || entry
+                        .insights
+                        .iter()
+                        .any(|insight| insight.content.to_lowercase().contains(&query_lower))
             })
             .collect();
 
@@ -246,10 +243,7 @@ mod tests {
         storage.init().await.unwrap();
 
         // 创建测试条目
-        let mut entry = PlaybookEntry::new(
-            "test query".to_string(),
-            "test response".to_string(),
-        );
+        let mut entry = PlaybookEntry::new("test query".to_string(), "test response".to_string());
         entry.execution_success = true;
         entry.tools_used.push("bash".to_string());
 

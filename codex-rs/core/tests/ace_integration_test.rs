@@ -5,8 +5,9 @@
 #[cfg(feature = "ace")]
 #[cfg(test)]
 mod ace_integration_tests {
+    use codex_core::ace::ACEPlugin;
+    use codex_core::ace::ReflectorMVP;
     use codex_core::ace::types::*;
-    use codex_core::ace::{ACEPlugin, ReflectorMVP};
     use std::path::PathBuf;
     use tempfile::tempdir;
 

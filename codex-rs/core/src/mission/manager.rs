@@ -2,7 +2,8 @@
 //!
 //! 负责创建、更新和跟踪 Mission 状态
 
-use super::types::{MissionContext, TodoItem};
+use super::types::MissionContext;
+use super::types::TodoItem;
 use codex_protocol::plan_tool::StepStatus;
 
 /// Mission Manager

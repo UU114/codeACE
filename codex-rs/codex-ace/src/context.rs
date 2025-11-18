@@ -38,11 +38,7 @@ impl SimpleContextLoader {
     }
 
     /// 查找相关条目（MVP版：简单关键词匹配）
-    fn find_relevant_entries(
-        &self,
-        entries: &[PlaybookEntry],
-        query: &str,
-    ) -> Vec<PlaybookEntry> {
+    fn find_relevant_entries(&self, entries: &[PlaybookEntry], query: &str) -> Vec<PlaybookEntry> {
         // 提取查询关键词
         let query_words: HashSet<String> = query
             .split_whitespace()
@@ -70,14 +66,22 @@ impl SimpleContextLoader {
 
                 // 标签匹配（权重中等）
                 for word in &query_words {
-                    if entry.tags.iter().any(|tag| tag.to_lowercase().contains(word)) {
+                    if entry
+                        .tags
+                        .iter()
+                        .any(|tag| tag.to_lowercase().contains(word))
+                    {
                         score += 2;
                     }
                 }
 
                 // 洞察内容匹配（权重较低）
                 for word in &query_words {
-                    if entry.insights.iter().any(|i| i.content.to_lowercase().contains(word)) {
+                    if entry
+                        .insights
+                        .iter()
+                        .any(|i| i.content.to_lowercase().contains(word))
+                    {
                         score += 1;
                     }
                 }
@@ -204,18 +208,12 @@ impl SimpleContextLoader {
 
         // 识别的模式
         if !entry.patterns.is_empty() {
-            text.push_str(&format!(
-                "**Patterns:** {}\n",
-                entry.patterns.join(", ")
-            ));
+            text.push_str(&format!("**Patterns:** {}\n", entry.patterns.join(", ")));
         }
 
         // 标签
         if !entry.tags.is_empty() {
-            text.push_str(&format!(
-                "**Tags:** {}\n",
-                entry.tags.join(", ")
-            ));
+            text.push_str(&format!("**Tags:** {}\n", entry.tags.join(", ")));
         }
 
         text

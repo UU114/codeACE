@@ -934,8 +934,8 @@ impl ChatComposer {
                     && rest.is_empty()
                 {
                     // 首先尝试解析别名
-                    let resolved_name = crate::slash_command::resolve_command_alias(name)
-                        .unwrap_or(name);
+                    let resolved_name =
+                        crate::slash_command::resolve_command_alias(name).unwrap_or(name);
 
                     // 查找命令（使用解析后的名称）
                     if let Some((_n, cmd)) = built_in_slash_commands()
