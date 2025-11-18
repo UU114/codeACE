@@ -616,12 +616,23 @@ impl Default for CuratorConfig {
 // 辅助函数
 // ============================================================================
 
-/// 截断字符串到指定长度
+/// 截断字符串到指定长度（安全处理 UTF-8 边界）
 pub fn truncate_string(s: &str, max_len: usize) -> String {
     if s.len() <= max_len {
         s.to_string()
     } else {
-        format!("{}...", &s[..max_len])
+        // 找到安全的 UTF-8 字符边界
+        let mut boundary = max_len;
+        while boundary > 0 && !s.is_char_boundary(boundary) {
+            boundary -= 1;
+        }
+
+        if boundary == 0 {
+            // 如果连第一个字符都放不下，返回空字符串
+            "...".to_string()
+        } else {
+            format!("{}...", &s[..boundary])
+        }
     }
 }
 
@@ -748,4 +759,60 @@ pub enum ModificationType {
 
     /// 删除
     Deleted,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_truncate_string_ascii() {
+        // ASCII 字符串
+        let result = truncate_string("hello world", 5);
+        assert_eq!(result, "hello...");
+
+        let result = truncate_string("hello", 10);
+        assert_eq!(result, "hello");
+    }
+
+    #[test]
+    fn test_truncate_string_utf8() {
+        // 中文字符（每个字符 3 字节）
+        let result = truncate_string("你好世界", 6); // 正好 2 个中文字符
+        assert_eq!(result, "你好...");
+
+        // 边界不对齐的情况
+        let result = truncate_string("你好世界", 7); // 7 字节落在第 3 个字符中间
+        assert_eq!(result, "你好..."); // 应该截断到安全边界
+
+        // 混合字符
+        let result = truncate_string("Hello你好World", 10);
+        assert!(result.contains("..."));
+        assert!(!result.contains("�")); // 不应该有乱码
+    }
+
+    #[test]
+    fn test_truncate_string_emoji() {
+        // Emoji（4 字节）
+        let result = truncate_string("😀😁😂", 4);
+        assert_eq!(result, "😀...");
+
+        let result = truncate_string("😀😁😂", 5); // 落在第 2 个 emoji 中间
+        assert_eq!(result, "😀..."); // 应该截断到第 1 个
+    }
+
+    #[test]
+    fn test_truncate_string_edge_cases() {
+        // 空字符串
+        let result = truncate_string("", 10);
+        assert_eq!(result, "");
+
+        // 极小的 max_len
+        let result = truncate_string("你好", 1);
+        assert_eq!(result, "..."); // 无法容纳任何字符
+
+        // max_len 为 0
+        let result = truncate_string("hello", 0);
+        assert_eq!(result, "...");
+    }
 }
