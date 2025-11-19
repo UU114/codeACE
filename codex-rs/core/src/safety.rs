@@ -51,14 +51,6 @@ pub fn assess_patch_safety(
         };
     }
 
-    // 检查 read-only sandbox 策略
-    // 在 read-only 模式下，任何文件写入都应该被拒绝
-    if matches!(sandbox_policy, SandboxPolicy::ReadOnly) {
-        return SafetyCheck::Reject {
-            reason: "file writes are not allowed in read-only sandbox mode. To enable file editing, switch to workspace-write or danger-full-access sandbox mode.".to_string(),
-        };
-    }
-
     match policy {
         AskForApproval::OnFailure | AskForApproval::Never | AskForApproval::OnRequest => {
             // Continue to see if this can be auto-approved.
