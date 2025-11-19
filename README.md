@@ -56,25 +56,30 @@ git clone https://github.com/UU114/codeACE.git
 cd codeACE
 ```
 
-### 2️⃣ 编译（启用 ACE 功能）
+### 2️⃣ 编译
 
 ```bash
 cd codex-rs
 
-# 编译 release 版本（启用 ACE）
-cargo build --release --features ace
+# 编译 release 版本
+cargo build --release
 
 # 或者编译 debug 版本用于开发
-cargo build --features ace
+cargo build
 ```
 
-**重要**：必须使用 `--features ace` 标志来启用 ACE 功能！
+**✨ 从 v1.0 开始，ACE 功能已默认编译启用**，无需额外添加 feature 标志！
+
+如果需要禁用 ACE 功能，可以使用：
+```bash
+cargo build --release --no-default-features
+```
 
 ### 3️⃣ 安装到系统
 
 ```bash
-# 方式1: 使用 cargo install
-cargo install --path cli --features ace
+# 方式1: 使用 cargo install（推荐）
+cargo install --path cli
 
 # 方式2: 手动复制二进制文件
 cp target/release/codex ~/.local/bin/
@@ -203,12 +208,17 @@ max_context_chars = 4000          # 上下文最大字符数
 
 ### 禁用 ACE
 
+方式1：通过配置文件临时禁用（保留 ACE 代码）
 ```toml
 [ace]
 enabled = false
 ```
 
-或者编译时不使用 `--features ace` 标志。
+方式2：编译时完全移除 ACE 功能（减小二进制体积）
+```bash
+cd codex-rs
+cargo build --release --no-default-features
+```
 
 ---
 
@@ -347,12 +357,15 @@ ACE 采用模块化的代理架构（Agentic Architecture），将任务分解�
 ### 运行测试
 
 ```bash
-# 运行所有 ACE 测试
-cargo test --features ace
+# 运行所有 ACE 测试（ACE 默认启用）
+cargo test
 
 # 运行特定测试
-cargo test --features ace ace_e2e
-cargo test --features ace ace_learning_test
+cargo test ace_e2e
+cargo test ace_learning_test
+
+# 运行 core 包的测试
+cargo test -p codex-core
 ```
 
 ### 测试覆盖
@@ -374,6 +387,7 @@ cargo test --features ace ace_learning_test
 - ✅ 存储系统（JSONL + Playbook）
 - ✅ CLI 命令（5 个命令）
 - ✅ 测试覆盖（11/11 通过）
+- ✅ ACE 模块默认编译（简化构建流程）
 
 ### Phase 2: 核心学习 🚧 (进行中)
 
