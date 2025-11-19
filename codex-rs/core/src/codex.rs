@@ -1913,19 +1913,61 @@ pub(crate) async fn run_task(
 
                 auto_compact_recently_attempted = false;
 
+                // 处理空响应的情况
+                // responses 为空意味着没有需要执行的工具调用
+                // 但可能有其他内容（如 AI 消息）已被记录和发送
                 if responses.is_empty() {
-                    last_agent_message = get_last_assistant_message_from_turn(
-                        &items_to_record_in_conversation_history,
-                    );
-                    sess.notifier()
-                        .notify(&UserNotification::AgentTurnComplete {
-                            thread_id: sess.conversation_id.to_string(),
-                            turn_id: turn_context.sub_id.clone(),
-                            cwd: turn_context.cwd.display().to_string(),
-                            input_messages: turn_input_messages,
-                            last_assistant_message: last_agent_message.clone(),
-                        });
-                    break;
+                    // 检查是否有内容被处理
+                    if items_to_record_in_conversation_history.is_empty() {
+                        // 真的什么都没有，任务可能已完成或出错
+                        tracing::debug!("Turn completed with no responses and no items to record");
+                        last_agent_message = get_last_assistant_message_from_turn(
+                            &items_to_record_in_conversation_history,
+                        );
+                        sess.notifier()
+                            .notify(&UserNotification::AgentTurnComplete {
+                                thread_id: sess.conversation_id.to_string(),
+                                turn_id: turn_context.sub_id.clone(),
+                                cwd: turn_context.cwd.display().to_string(),
+                                input_messages: turn_input_messages,
+                                last_assistant_message: last_agent_message.clone(),
+                            });
+                        break;
+                    } else {
+                        // 有内容被记录（如 AI 消息），但没有工具调用需要执行
+                        // 这种情况下应该等待用户的下一个输入，而不是直接退出
+                        tracing::debug!(
+                            "Turn completed with no pending tool calls, but {} items were recorded. Waiting for user input.",
+                            items_to_record_in_conversation_history.len()
+                        );
+
+                        // 发送后台事件通知客户端
+                        sess.send_event(
+                            &turn_context,
+                            EventMsg::BackgroundEvent(crate::protocol::BackgroundEventEvent {
+                                message: format!(
+                                    "Agent completed turn without pending tool calls ({} items recorded)",
+                                    items_to_record_in_conversation_history.len()
+                                ),
+                            }),
+                        )
+                        .await;
+
+                        last_agent_message = get_last_assistant_message_from_turn(
+                            &items_to_record_in_conversation_history,
+                        );
+                        sess.notifier()
+                            .notify(&UserNotification::AgentTurnComplete {
+                                thread_id: sess.conversation_id.to_string(),
+                                turn_id: turn_context.sub_id.clone(),
+                                cwd: turn_context.cwd.display().to_string(),
+                                input_messages: turn_input_messages,
+                                last_assistant_message: last_agent_message.clone(),
+                            });
+
+                        // 继续循环等待用户输入，而不是退出
+                        continue;
+                    }
                 }
                 continue;
             }
