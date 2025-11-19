@@ -123,9 +123,11 @@ pub struct BulletMetadata {
     pub failure_count: u32,
 
     /// 相关工具/语言
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub related_tools: Vec<String>,
 
     /// 相关文件模式（glob）
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub related_file_patterns: Vec<String>,
 
     /// 置信度（0.0 - 1.0，MVP 可固定为 1.0）
@@ -152,15 +154,19 @@ pub enum SourceType {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Applicability {
     /// 适用的编程语言（空表示通用）
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub languages: Vec<String>,
 
     /// 适用的工具
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub tools: Vec<String>,
 
     /// 适用的操作系统
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub platforms: Vec<String>,
 
     /// 适用的项目类型
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub project_types: Vec<String>,
 }
 

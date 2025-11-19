@@ -4,8 +4,8 @@
 
 use super::types::BulletCodeContent;
 
-/// 代码分级阈值
-const CORE_CODE_LINE_THRESHOLD: usize = 200;
+/// 代码分级阈值（小于此行数的代码完整保存，大于等于此行数的代码保存摘要）
+const CORE_CODE_LINE_THRESHOLD: usize = 100;
 
 /// 代码分析器
 pub struct CodeAnalyzer {

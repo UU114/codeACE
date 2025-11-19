@@ -7,8 +7,8 @@
 
 #[cfg(test)]
 mod playbook_context_tests {
-    use codex_core::ace::{ACEPlugin, BulletStorage, Playbook};
     use codex_core::ace::types::*;
+    use codex_core::ace::{ACEPlugin, BulletStorage, Playbook};
     use tempfile::tempdir;
 
     /// 场景1: 测试Playbook能否提供相关上下文
@@ -43,7 +43,11 @@ mod playbook_context_tests {
             "使用 `cargo test test_name` 可以只运行特定的测试。使用 `cargo test -- --nocapture` 可以看到println输出。".to_string(),
             "session-past".to_string(),
         );
-        bullet2.tags = vec!["rust".to_string(), "testing".to_string(), "filtering".to_string()];
+        bullet2.tags = vec![
+            "rust".to_string(),
+            "testing".to_string(),
+            "filtering".to_string(),
+        ];
         bullet2.metadata.related_tools = vec!["bash".to_string()];
         bullet2.metadata.success_count = 3;
 
@@ -74,8 +78,14 @@ mod playbook_context_tests {
         println!("找到 {} 个相关的bullets:\n", relevant_bullets.len());
 
         for (i, bullet) in relevant_bullets.iter().enumerate() {
-            println!("{}. [{}] {}", i + 1, format!("{:?}", bullet.section), bullet.content);
-            println!("   成功率: {}/{}",
+            println!(
+                "{}. [{}] {}",
+                i + 1,
+                format!("{:?}", bullet.section),
+                bullet.content
+            );
+            println!(
+                "   成功率: {}/{}",
                 bullet.metadata.success_count,
                 bullet.metadata.success_count + bullet.metadata.failure_count
             );
@@ -86,10 +96,9 @@ mod playbook_context_tests {
         assert!(!relevant_bullets.is_empty(), "应该找到至少一个相关的bullet");
 
         // 验证找到的bullet包含测试相关内容
-        let has_test_content = relevant_bullets.iter().any(|b|
-            b.content.contains("cargo test") ||
-            b.content.contains("测试")
-        );
+        let has_test_content = relevant_bullets
+            .iter()
+            .any(|b| b.content.contains("cargo test") || b.content.contains("测试"));
         assert!(has_test_content, "应该找到包含测试相关内容的bullet");
 
         println!("✅ 场景1通过: Playbook成功提供了相关上下文");
@@ -139,7 +148,8 @@ cargo test -- --nocapture
 "#;
 
         // 2. 从这段对话中提取的Playbook bullet
-        let bullet_content = "运行Rust项目测试时，使用 `cargo test` 命令。这会编译并执行所有测试用例。";
+        let bullet_content =
+            "运行Rust项目测试时，使用 `cargo test` 命令。这会编译并执行所有测试用例。";
         let bullet_tip = "使用 `cargo test test_name` 可以只运行特定的测试。使用 `cargo test -- --nocapture` 可以看到println输出。";
 
         // 3. 比较大小
@@ -156,7 +166,10 @@ cargo test -- --nocapture
         assert!(compression_ratio > 2.0, "Playbook应该至少压缩2倍以上");
 
         println!("✅ 场景2通过: Playbook的信息密度显著高于完整对话历史");
-        println!("   节省空间: {:.1}%", (1.0 - 1.0 / compression_ratio) * 100.0);
+        println!(
+            "   节省空间: {:.1}%",
+            (1.0 - 1.0 / compression_ratio) * 100.0
+        );
     }
 
     /// 场景3: 测试Playbook作为长期记忆的有效性
@@ -247,10 +260,10 @@ cargo test -- --nocapture
 
         let ctx = context.unwrap();
         // 验证上下文包含相关信息
-        let has_relevant_info = ctx.contains("pm2") ||
-                                ctx.contains("nginx") ||
-                                ctx.contains("部署") ||
-                                ctx.contains("Node");
+        let has_relevant_info = ctx.contains("pm2")
+            || ctx.contains("nginx")
+            || ctx.contains("部署")
+            || ctx.contains("Node");
 
         println!("\n✅ 场景3通过: Playbook成功作为长期记忆");
         println!("   第二次任务无需重复完整的学习过程");
@@ -331,10 +344,22 @@ cargo test -- --nocapture
 
         // 添加多个领域的知识
         let domains = vec![
-            ("Python项目", "使用 `pytest` 运行Python测试。使用 `pytest -v` 查看详细输出。"),
-            ("Docker", "使用 `docker-compose up -d` 启动服务。使用 `docker-compose logs -f` 查看日志。"),
-            ("Git", "使用 `git stash` 暂存更改。使用 `git stash pop` 恢复更改。"),
-            ("数据库", "PostgreSQL连接字符串格式: postgresql://user:pass@host:port/db"),
+            (
+                "Python项目",
+                "使用 `pytest` 运行Python测试。使用 `pytest -v` 查看详细输出。",
+            ),
+            (
+                "Docker",
+                "使用 `docker-compose up -d` 启动服务。使用 `docker-compose logs -f` 查看日志。",
+            ),
+            (
+                "Git",
+                "使用 `git stash` 暂存更改。使用 `git stash pop` 恢复更改。",
+            ),
+            (
+                "数据库",
+                "PostgreSQL连接字符串格式: postgresql://user:pass@host:port/db",
+            ),
         ];
 
         for (domain, content) in domains {
@@ -366,9 +391,9 @@ cargo test -- --nocapture
             println!("  找到 {} 个相关bullets", bullets.len());
 
             if !bullets.is_empty() {
-                let has_expected = bullets.iter().any(|b|
-                    b.content.to_lowercase().contains(expected_keyword)
-                );
+                let has_expected = bullets
+                    .iter()
+                    .any(|b| b.content.to_lowercase().contains(expected_keyword));
 
                 if has_expected {
                     println!("  ✓ 找到包含 '{}' 的相关内容", expected_keyword);
