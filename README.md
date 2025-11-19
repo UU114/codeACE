@@ -58,6 +58,9 @@ cd codeACE
 
 ### 2️⃣ 编译
 
+> **💡 Windows 用户提示**
+> 推荐使用 **Git Bash** 而不是 PowerShell 进行编译，以避免路径处理和命令兼容性问题。
+
 ```bash
 cd codex-rs
 
@@ -375,6 +378,38 @@ cargo test -p codex-core
 - ✅ 配置系统: 100%
 - ✅ Hook 系统: 100%
 - ✅ CLI 命令: 100%
+- ✅ Playbook上下文测试: 5/5 通过 🆕
+
+### 📋 Playbook vs History Message 测试 🆕
+
+**测试日期**: 2025-11-19
+
+**核心问题**: Playbook能否替换History Message？
+
+**测试结果**: ✅ 所有测试通过 (5/5)
+
+```bash
+# 运行Playbook上下文测试
+cd codex-rs
+cargo test --test playbook_context_test --features ace -- --nocapture
+```
+
+**关键发现**:
+
+| 指标 | 结果 |
+|------|------|
+| 信息密度 | Playbook比完整对话高 **4.18倍** |
+| 空间节省 | **76.1%** |
+| 检索准确性 | ✅ 成功检索相关领域知识 |
+| 长期记忆 | ✅ 实现跨会话知识复用 |
+
+**核心结论**: ❌ **Playbook 不能也不应该完全替换 History Message**
+
+- **History Message**: 提供当前对话的上下文和连续性（短期记忆）
+- **Playbook**: 提供过去学到的知识和最佳实践（长期记忆）
+- **正确方式**: 两者协同工作，互相补充
+
+详细测试报告: [codex-rs/test20251119/测试结果.md](codex-rs/test20251119/测试结果.md)
 
 ---
 
