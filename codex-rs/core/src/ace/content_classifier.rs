@@ -208,9 +208,7 @@ impl ContentClassifier {
 
         (
             true,
-            format!(
-                "{content_type:?} 类型内容，长度 {length} 字符，符合质量标准"
-            ),
+            format!("{content_type:?} 类型内容，长度 {length} 字符，符合质量标准"),
         )
     }
 

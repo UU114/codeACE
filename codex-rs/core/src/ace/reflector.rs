@@ -1,6 +1,6 @@
-//! Reflector - 智能提取器（MVP Bullet-based 版本）
+//! Reflector - Intelligent Extractor (MVP Bullet-based version)
 //!
-//! 基于规则的模式提取，输出未结构化的 RawInsights。
+//! Rule-based pattern extraction, outputs unstructured RawInsights.
 
 use super::types::ExecutionResult;
 use super::types::InsightCategory;
@@ -10,7 +10,7 @@ use anyhow::Result;
 use regex::Regex;
 use std::collections::HashMap;
 
-/// Reflector配置
+/// Reflector configuration
 #[derive(Debug, Clone)]
 pub struct ReflectorConfig {
     pub extract_patterns: bool,
@@ -38,14 +38,14 @@ impl From<super::types::ReflectorConfig> for ReflectorConfig {
     }
 }
 
-/// MVP版Reflector - 输出 RawInsights
+/// MVP version Reflector - Outputs RawInsights
 pub struct ReflectorMVP {
     config: ReflectorConfig,
     patterns: HashMap<String, Regex>,
 }
 
 impl ReflectorMVP {
-    /// 创建新的Reflector
+    /// Create new Reflector
     pub fn new(config: ReflectorConfig) -> Self {
         Self {
             config,
@@ -53,11 +53,11 @@ impl ReflectorMVP {
         }
     }
 
-    /// 初始化正则表达式模式
+    /// Initialize regex patterns
     fn init_patterns() -> HashMap<String, Regex> {
         let mut patterns = HashMap::new();
 
-        // 工具使用模式
+        // Tool usage patterns
         patterns.insert(
             "tool_bash".to_string(),
             Regex::new(r"(?i)(bash|shell|command|execute|run)\s+`([^`]+)`").unwrap(),
@@ -69,31 +69,31 @@ impl ReflectorMVP {
                 .unwrap(),
         );
 
-        // 代码块模式
+        // Code block pattern
         patterns.insert(
             "code_block".to_string(),
             Regex::new(r"```(\w+)?\n([\s\S]+?)```").unwrap(),
         );
 
-        // 错误模式
+        // Error pattern
         patterns.insert(
             "error_pattern".to_string(),
             Regex::new(r"(?i)(error|错误|failed|失败|exception):\s*([^\n]+)").unwrap(),
         );
 
-        // 测试模式
+        // Test pattern
         patterns.insert(
             "test_pattern".to_string(),
             Regex::new(r"(?i)(test|pytest|cargo test|npm test)").unwrap(),
         );
 
-        // 构建模式
+        // Build pattern
         patterns.insert(
             "build_pattern".to_string(),
             Regex::new(r"(?i)(build|compile|cargo build|npm build|make)").unwrap(),
         );
 
-        // Git操作
+        // Git operations
         patterns.insert(
             "git_pattern".to_string(),
             Regex::new(r"(?i)(git\s+(add|commit|push|pull|clone|checkout))").unwrap(),
@@ -102,12 +102,12 @@ impl ReflectorMVP {
         patterns
     }
 
-    /// 分析对话，返回原始洞察（精华提取版本）
+    /// Analyze conversation, return raw insights (essence extraction version)
     ///
-    /// 这是 Reflector 的核心方法。使用精华提取策略：
-    /// - 一次对话通常只生成 1 条精炼的 insight (200-800 字符)
-    /// - 只保留最终代码版本，不记录中间过程
-    /// - 压缩并提取精华，减缓上下文膨胀
+    /// This is the core method of Reflector. Uses essence extraction strategy:
+    /// - One conversation usually generates only 1 refined insight (200-800 characters)
+    /// - Only keep final code version, don't record intermediate process
+    /// - Compress and extract essence, slow down context inflation
     pub async fn analyze_conversation(
         &self,
         user_query: &str,
@@ -115,7 +115,7 @@ impl ReflectorMVP {
         execution_result: &ExecutionResult,
         session_id: String,
     ) -> Result<Vec<RawInsight>> {
-        // 1. 提取对话精华
+        // 1. Extract conversation essence
         let summary = self.extract_conversation_essence(
             user_query,
             assistant_response,
@@ -123,19 +123,19 @@ impl ReflectorMVP {
             session_id.clone(),
         )?;
 
-        // 2. 决定是否记录
+        // 2. Decide whether to record
         if !self.should_record_conversation(&summary) {
             return Ok(Vec::new());
         }
 
-        // 3. 生成精炼的 insight 内容
+        // 3. Generate refined insight content
         let content = self.generate_insight_content(&summary);
 
-        // 4. 确定类别和重要性
+        // 4. Determine category and importance
         let category = self.map_task_type_to_category(&summary.task_type);
         let importance = self.calculate_importance(&summary);
 
-        // 5. 创建 insight（通常只有 1 条）
+        // 5. Create insight (usually only 1)
         let insight = RawInsight {
             content,
             category,
@@ -153,7 +153,7 @@ impl ReflectorMVP {
         Ok(vec![insight])
     }
 
-    /// 提取工具使用洞察（增强版 - 带智能过滤）
+    /// Extract tool usage insights (enhanced version - with intelligent filtering)
     fn extract_tool_insights(
         &self,
         response: &str,
@@ -162,26 +162,26 @@ impl ReflectorMVP {
         let mut insights = Vec::new();
         let mut found_command = false;
 
-        // Bash 命令
+        // Bash commands
         if let Some(regex) = self.patterns.get("tool_bash") {
             for cap in regex.captures_iter(response) {
                 if let Some(command) = cap.get(2) {
                     let cmd = command.as_str();
 
-                    // 智能过滤：跳过查看类命令
+                    // Intelligent filtering: skip view-type commands
                     if Self::is_read_only_command(cmd) {
                         continue;
                     }
 
-                    // 检测是否为决策相关的命令（如安装、配置等）
+                    // Detect if it's a decision-related command (like install, configure, etc.)
                     let importance = if Self::is_decision_command(cmd) {
-                        0.85 // 决策类命令更重要
+                        0.85 // Decision commands are more important
                     } else {
                         0.7
                     };
 
                     insights.push(RawInsight {
-                        content: format!("执行命令: {}", cmd),
+                        content: format!("Execute command: {cmd}"),
                         category: InsightCategory::ToolUsage,
                         importance,
                         context: context.clone(),
@@ -191,11 +191,11 @@ impl ReflectorMVP {
             }
         }
 
-        // 回退：如果没有从文本提取到工具使用，但 tools_used 不为空，则从 tools_used 生成
+        // Fallback: if no tool usage extracted from text but tools_used is not empty, generate from tools_used
         if !found_command && !context.tools_used.is_empty() {
             for tool in &context.tools_used {
                 insights.push(RawInsight {
-                    content: format!("使用工具: {}", tool),
+                    content: format!("Use tool: {tool}"),
                     category: InsightCategory::ToolUsage,
                     importance: 0.6,
                     context: context.clone(),
@@ -203,19 +203,19 @@ impl ReflectorMVP {
             }
         }
 
-        // 文件操作（过滤读操作）
+        // File operations (filter read operations)
         if let Some(regex) = self.patterns.get("tool_file") {
             for cap in regex.captures_iter(response) {
                 if let (Some(action), Some(path)) = (cap.get(1), cap.get(3)) {
                     let action_str = action.as_str().to_lowercase();
 
-                    // 过滤只读操作
+                    // Filter read-only operations
                     if action_str.contains("read") || action_str.contains("view") {
                         continue;
                     }
 
                     insights.push(RawInsight {
-                        content: format!("文件操作: {} {}", action.as_str(), path.as_str()),
+                        content: format!("File operation: {} {}", action.as_str(), path.as_str()),
                         category: InsightCategory::ToolUsage,
                         importance: 0.7,
                         context: context.clone(),
@@ -227,7 +227,7 @@ impl ReflectorMVP {
         Ok(insights)
     }
 
-    /// 判断是否为只读命令（应该过滤）
+    /// Check if command is read-only (should be filtered)
     fn is_read_only_command(cmd: &str) -> bool {
         let cmd_lower = cmd.trim().to_lowercase();
         let read_only_commands = [
@@ -235,7 +235,7 @@ impl ReflectorMVP {
             "whoami", "echo", "printf", "tree", "file", "stat", "wc", "diff",
         ];
 
-        // 检查命令开头
+        // Check command beginning
         for ro_cmd in &read_only_commands {
             if cmd_lower.starts_with(ro_cmd) {
                 return true;
@@ -245,7 +245,7 @@ impl ReflectorMVP {
         false
     }
 
-    /// 判断是否为决策类命令（安装、配置等，重要性高）
+    /// Check if command is decision-type (install, configure, etc., high importance)
     fn is_decision_command(cmd: &str) -> bool {
         let cmd_lower = cmd.to_lowercase();
         cmd_lower.contains("install")
@@ -258,7 +258,7 @@ impl ReflectorMVP {
             || cmd_lower.starts_with("npx create")
     }
 
-    /// 提取错误处理洞察
+    /// Extract error handling insights
     fn extract_error_insights(
         &self,
         result: &ExecutionResult,
@@ -268,17 +268,17 @@ impl ReflectorMVP {
 
         if let Some(error) = &result.error {
             insights.push(RawInsight {
-                content: format!("错误: {}", super::types::truncate_string(error, 200)),
+                content: format!("Error: {}", super::types::truncate_string(error, 200)),
                 category: InsightCategory::ErrorHandling,
                 importance: 0.9,
                 context: context.clone(),
             });
 
-            // 如果后续成功，记录解决方案
+            // If succeeded afterwards, record solution
             if result.retry_success {
                 insights.push(RawInsight {
                     content: format!(
-                        "解决方案: 针对错误 '{}' 的成功处理",
+                        "Solution: Successful handling for error '{}'",
                         super::types::truncate_string(error, 100)
                     ),
                     category: InsightCategory::Solution,
@@ -288,11 +288,14 @@ impl ReflectorMVP {
             }
         }
 
-        // 处理错误列表
+        // Process error list
         for error in &result.errors {
             if !error.is_empty() {
                 insights.push(RawInsight {
-                    content: format!("遇到错误: {}", super::types::truncate_string(error, 150)),
+                    content: format!(
+                        "Encountered error: {}",
+                        super::types::truncate_string(error, 150)
+                    ),
                     category: InsightCategory::ErrorHandling,
                     importance: 0.8,
                     context: context.clone(),
@@ -303,7 +306,7 @@ impl ReflectorMVP {
         Ok(insights)
     }
 
-    /// 提取模式洞察
+    /// Extract pattern insights
     fn extract_pattern_insights(
         &self,
         response: &str,
@@ -311,46 +314,46 @@ impl ReflectorMVP {
     ) -> Result<Vec<RawInsight>> {
         let mut insights = Vec::new();
 
-        // 测试模式
-        if let Some(regex) = self.patterns.get("test_pattern") {
-            if regex.is_match(response) {
-                insights.push(RawInsight {
-                    content: "执行了测试流程".to_string(),
-                    category: InsightCategory::Pattern,
-                    importance: 0.6,
-                    context: context.clone(),
-                });
-            }
+        // Test pattern
+        if let Some(regex) = self.patterns.get("test_pattern")
+            && regex.is_match(response)
+        {
+            insights.push(RawInsight {
+                content: "Executed test workflow".to_string(),
+                category: InsightCategory::Pattern,
+                importance: 0.6,
+                context: context.clone(),
+            });
         }
 
-        // 构建模式
-        if let Some(regex) = self.patterns.get("build_pattern") {
-            if regex.is_match(response) {
-                insights.push(RawInsight {
-                    content: "执行了构建流程".to_string(),
-                    category: InsightCategory::Pattern,
-                    importance: 0.6,
-                    context: context.clone(),
-                });
-            }
+        // Build pattern
+        if let Some(regex) = self.patterns.get("build_pattern")
+            && regex.is_match(response)
+        {
+            insights.push(RawInsight {
+                content: "Executed build workflow".to_string(),
+                category: InsightCategory::Pattern,
+                importance: 0.6,
+                context: context.clone(),
+            });
         }
 
-        // Git操作模式
-        if let Some(regex) = self.patterns.get("git_pattern") {
-            if regex.is_match(response) {
-                insights.push(RawInsight {
-                    content: "执行了 Git 操作".to_string(),
-                    category: InsightCategory::Pattern,
-                    importance: 0.7,
-                    context: context.clone(),
-                });
-            }
+        // Git operation pattern
+        if let Some(regex) = self.patterns.get("git_pattern")
+            && regex.is_match(response)
+        {
+            insights.push(RawInsight {
+                content: "Executed Git operation".to_string(),
+                category: InsightCategory::Pattern,
+                importance: 0.7,
+                context: context.clone(),
+            });
         }
 
         Ok(insights)
     }
 
-    /// 提取代码片段洞察（增强版 - 提取完整代码）
+    /// Extract code snippet insights (enhanced version - extract complete code)
     fn extract_code_insights(
         &self,
         response: &str,
@@ -358,36 +361,36 @@ impl ReflectorMVP {
     ) -> Result<Vec<RawInsight>> {
         let mut insights = Vec::new();
 
-        // 代码块模式
+        // Code block pattern
         if let Some(regex) = self.patterns.get("code_block") {
             for cap in regex.captures_iter(response) {
                 let lang_str = cap.get(1).map(|m| m.as_str()).unwrap_or("");
                 let code_content = cap.get(2).map(|m| m.as_str()).unwrap_or("");
 
-                // 过滤空代码块或太短的代码块
+                // Filter empty or too short code blocks
                 if code_content.trim().len() < 10 {
                     continue;
                 }
 
-                // 计算重要性：基于代码长度和语言
+                // Calculate importance: based on code length and language
                 let line_count = code_content.lines().count();
                 let importance = if line_count > 20 {
-                    0.85 // 长代码片段更重要
+                    0.85 // Longer code snippets are more important
                 } else if line_count > 5 {
                     0.7
                 } else {
                     0.5
                 };
 
-                // 生成描述性内容
+                // Generate descriptive content
                 let description = if !lang_str.is_empty() {
-                    format!("{} 代码实现 ({} 行)", lang_str, line_count)
+                    format!("{lang_str} code implementation ({line_count} lines)")
                 } else {
-                    format!("代码实现 ({} 行)", line_count)
+                    format!("Code implementation ({line_count} lines)")
                 };
 
-                // 创建包含完整代码的 insight
-                let content = format!("{}\n\n```{}\n{}\n```", description, lang_str, code_content);
+                // Create insight containing complete code
+                let content = format!("{description}\n\n```{lang_str}\n{code_content}\n```");
 
                 insights.push(RawInsight {
                     content,
@@ -398,18 +401,18 @@ impl ReflectorMVP {
             }
         }
 
-        // 提取技术决策信息
+        // Extract technical decision information
         insights.extend(self.extract_decision_insights(response, context)?);
 
-        // 提取 API 调用信息
+        // Extract API call information
         insights.extend(self.extract_api_insights(response, context)?);
 
         Ok(insights)
     }
 
-    /// 提取技术决策信息
+    /// Extract technical decision information
     ///
-    /// 识别"为什么选择 X"、"理由是"、"因为"等决策性描述
+    /// Identify decision descriptions like "why choose X", "reason is", "because", etc.
     fn extract_decision_insights(
         &self,
         response: &str,
@@ -417,7 +420,7 @@ impl ReflectorMVP {
     ) -> Result<Vec<RawInsight>> {
         let mut insights = Vec::new();
 
-        // 技术决策关键词模式
+        // Technical decision keyword patterns
         let decision_patterns = [
             (
                 r"(?i)(选择|chose|using)\s+([a-zA-Z0-9\+\-\.]+).*?(因为|because|since|理由是|reason)[^\n]{10,200}",
@@ -440,13 +443,13 @@ impl ReflectorMVP {
                     if let Some(full_match) = cap.get(0) {
                         let decision_text = full_match.as_str().trim();
 
-                        // 过滤太短的匹配
+                        // Filter too short matches
                         if decision_text.len() < 15 {
                             continue;
                         }
 
                         insights.push(RawInsight {
-                            content: format!("技术决策: {}", decision_text),
+                            content: format!("Technical decision: {decision_text}"),
                             category: InsightCategory::Knowledge,
                             importance: *importance,
                             context: context.clone(),
@@ -459,9 +462,9 @@ impl ReflectorMVP {
         Ok(insights)
     }
 
-    /// 提取 API 调用信息
+    /// Extract API call information
     ///
-    /// 识别常见的 API 调用模式
+    /// Identify common API call patterns
     fn extract_api_insights(
         &self,
         response: &str,
@@ -469,11 +472,11 @@ impl ReflectorMVP {
     ) -> Result<Vec<RawInsight>> {
         let mut insights = Vec::new();
 
-        // API 调用模式
+        // API call patterns
         let api_patterns = [
-            // fetch/axios 调用
+            // fetch/axios calls
             r#"(?:fetch|axios)\s*\(\s*['"]([^'"]+)['"]"#,
-            // REST API 端点
+            // REST API endpoints
             r"(?:GET|POST|PUT|DELETE|PATCH)\s+(/[^\s\)]+)",
             // GraphQL
             r"(?:query|mutation)\s+(\w+)",
@@ -486,7 +489,7 @@ impl ReflectorMVP {
                         let api_info = api_match.as_str();
 
                         insights.push(RawInsight {
-                            content: format!("API 调用: {}", api_info),
+                            content: format!("API call: {api_info}"),
                             category: InsightCategory::ToolUsage,
                             importance: 0.75,
                             context: context.clone(),
@@ -500,13 +503,13 @@ impl ReflectorMVP {
     }
 
     // ========================================================================
-    // 精华提取方法 (Essence Extraction)
+    // Essence Extraction Methods
     // ========================================================================
 
-    /// 从一次完整对话中提取精华
+    /// Extract essence from a complete conversation
     ///
-    /// 关键：只保留最终结果，压缩中间过程
-    /// 目标：生成 200-800 字符的精炼 insight
+    /// Key: Only keep final result, compress intermediate process
+    /// Goal: Generate 200-800 character refined insight
     pub fn extract_conversation_essence(
         &self,
         user_query: &str,
@@ -527,7 +530,7 @@ impl ReflectorMVP {
             .tools_used
             .iter()
             .filter(|t| t.contains("write") || t.contains("edit") || t.contains("create"))
-            .map(|s| s.clone())
+            .cloned()
             .collect();
 
         // 4. 判断最终状态
@@ -687,12 +690,11 @@ impl ReflectorMVP {
         ];
 
         for pattern_str in &path_patterns {
-            if let Ok(re) = Regex::new(pattern_str) {
-                if let Some(cap) = re.captures(line) {
-                    if let Some(path) = cap.get(1).or_else(|| cap.get(0)) {
-                        return Some(path.as_str().to_string());
-                    }
-                }
+            if let Ok(re) = Regex::new(pattern_str)
+                && let Some(cap) = re.captures(line)
+                && let Some(path) = cap.get(1).or_else(|| cap.get(0))
+            {
+                return Some(path.as_str().to_string());
             }
         }
 
@@ -723,12 +725,12 @@ impl ReflectorMVP {
         }
 
         let mut description = if desc_parts.is_empty() {
-            format!("{} 代码", lang)
+            format!("{lang} 代码")
         } else {
             desc_parts.join("、")
         };
 
-        description.push_str(&format!("，{} 行", line_count));
+        description.push_str(&format!("，{line_count} 行"));
         description
     }
 
@@ -775,12 +777,11 @@ impl ReflectorMVP {
         ];
 
         for pattern_str in &completion_patterns {
-            if let Ok(re) = Regex::new(pattern_str) {
-                if let Some(cap) = re.captures(response) {
-                    if let Some(action) = cap.get(1) {
-                        return action.as_str().trim().to_string();
-                    }
-                }
+            if let Ok(re) = Regex::new(pattern_str)
+                && let Some(cap) = re.captures(response)
+                && let Some(action) = cap.get(1)
+            {
+                return action.as_str().trim().to_string();
             }
         }
 
@@ -800,12 +801,11 @@ impl ReflectorMVP {
         ];
 
         for pattern_str in &why_patterns {
-            if let Ok(re) = Regex::new(pattern_str) {
-                if let Some(cap) = re.captures(response) {
-                    if let Some(reason) = cap.get(1) {
-                        return Some(reason.as_str().trim().to_string());
-                    }
-                }
+            if let Ok(re) = Regex::new(pattern_str)
+                && let Some(cap) = re.captures(response)
+                && let Some(reason) = cap.get(1)
+            {
+                return Some(reason.as_str().trim().to_string());
             }
         }
 
@@ -815,18 +815,19 @@ impl ReflectorMVP {
     /// 提取"解决了什么问题"
     fn extract_problem_solved(&self, response: &str, result: &ExecutionResult) -> Option<String> {
         // 如果有错误但最终成功，说明解决了问题
-        if !result.errors.is_empty() && result.success {
-            if let Some(first_error) = result.errors.first() {
-                let error_type = first_error
-                    .lines()
-                    .next()
-                    .unwrap_or("未知错误")
-                    .chars()
-                    .take(50)
-                    .collect::<String>();
+        if !result.errors.is_empty()
+            && result.success
+            && let Some(first_error) = result.errors.first()
+        {
+            let error_type = first_error
+                .lines()
+                .next()
+                .unwrap_or("未知错误")
+                .chars()
+                .take(50)
+                .collect::<String>();
 
-                return Some(format!("修复了：{}", error_type));
-            }
+            return Some(format!("修复了：{error_type}"));
         }
 
         // 从响应中查找问题描述
@@ -836,12 +837,11 @@ impl ReflectorMVP {
         ];
 
         for pattern_str in &problem_patterns {
-            if let Ok(re) = Regex::new(pattern_str) {
-                if let Some(cap) = re.captures(response) {
-                    if let Some(problem) = cap.get(1) {
-                        return Some(problem.as_str().trim().to_string());
-                    }
-                }
+            if let Ok(re) = Regex::new(pattern_str)
+                && let Some(cap) = re.captures(response)
+                && let Some(problem) = cap.get(1)
+            {
+                return Some(problem.as_str().trim().to_string());
             }
         }
 
@@ -884,12 +884,11 @@ impl ReflectorMVP {
         ];
 
         for pattern_str in &summary_patterns {
-            if let Ok(re) = Regex::new(pattern_str) {
-                if let Some(cap) = re.captures(response) {
-                    if let Some(summary) = cap.get(1) {
-                        return summary.as_str().trim().to_string();
-                    }
-                }
+            if let Ok(re) = Regex::new(pattern_str)
+                && let Some(cap) = re.captures(response)
+                && let Some(summary) = cap.get(1)
+            {
+                return summary.as_str().trim().to_string();
             }
         }
 
@@ -996,11 +995,11 @@ impl ReflectorMVP {
         content.push_str(&format!("**实现**：{}\n\n", essence.what_was_done));
 
         if let Some(why) = &essence.why {
-            content.push_str(&format!("**原因**：{}\n\n", why));
+            content.push_str(&format!("**原因**：{why}\n\n"));
         }
 
         if let super::types::FinalState::Completed { summary: outcome } = &summary.final_state {
-            content.push_str(&format!("**成果**：{}\n\n", outcome));
+            content.push_str(&format!("**成果**：{outcome}\n\n"));
         }
 
         // 添加代码（只有最终版本）
@@ -1029,7 +1028,7 @@ impl ReflectorMVP {
         if !essence.key_decisions.is_empty() {
             content.push_str("\n**关键决策**：\n");
             for decision in &essence.key_decisions {
-                content.push_str(&format!("- {}\n", decision));
+                content.push_str(&format!("- {decision}\n"));
             }
         }
 
@@ -1043,7 +1042,7 @@ impl ReflectorMVP {
         let mut content = format!("**任务**：{}\n\n", summary.user_request);
 
         if let Some(problem) = &essence.problem_solved {
-            content.push_str(&format!("**问题**：{}\n\n", problem));
+            content.push_str(&format!("**问题**：{problem}\n\n"));
         }
 
         content.push_str(&format!("**解决方案**：{}\n\n", essence.what_was_done));
@@ -1060,7 +1059,7 @@ impl ReflectorMVP {
         }
 
         if let super::types::FinalState::Completed { summary: outcome } = &summary.final_state {
-            content.push_str(&format!("**结果**：✅ {}\n\n", outcome));
+            content.push_str(&format!("**结果**：✅ {outcome}\n\n"));
         }
 
         if !essence.modified_files.is_empty() {
@@ -1085,7 +1084,7 @@ impl ReflectorMVP {
         content.push_str(&format!("**实现**：{}\n\n", essence.what_was_done));
 
         if let Some(why) = &essence.why {
-            content.push_str(&format!("**技术选型**：{}\n\n", why));
+            content.push_str(&format!("**技术选型**：{why}\n\n"));
         }
 
         // 核心代码
@@ -1103,7 +1102,7 @@ impl ReflectorMVP {
         }
 
         if let super::types::FinalState::Completed { summary: outcome } = &summary.final_state {
-            content.push_str(&format!("**成果**：{}\n\n", outcome));
+            content.push_str(&format!("**成果**：{outcome}\n\n"));
         }
 
         if !essence.modified_files.is_empty() {
@@ -1127,12 +1126,12 @@ impl ReflectorMVP {
             next_steps,
         } = &summary.final_state
         {
-            content.push_str(&format!("**问题**：{}\n\n", problem));
+            content.push_str(&format!("**问题**：{problem}\n\n"));
 
             content.push_str(&format!("**已尝试**：{}\n\n", essence.what_was_done));
 
             if let Some(problem_context) = &essence.problem_solved {
-                content.push_str(&format!("**当前状态**：{}\n\n", problem_context));
+                content.push_str(&format!("**当前状态**：{problem_context}\n\n"));
             }
 
             content.push_str("**后续计划**：\n");

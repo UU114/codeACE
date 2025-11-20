@@ -313,7 +313,6 @@ impl CuratorMVP {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;

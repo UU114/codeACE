@@ -168,8 +168,7 @@ pub enum SourceType {
 }
 
 /// 适用性范围
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Applicability {
     /// 适用的编程语言（空表示通用）
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
@@ -187,7 +186,6 @@ pub struct Applicability {
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub project_types: Vec<String>,
 }
-
 
 impl Bullet {
     /// 创建新 bullet
@@ -587,8 +585,7 @@ impl DeltaContext {
 // ============================================================================
 
 /// 执行结果
-#[derive(Debug, Clone)]
-#[derive(Default)]
+#[derive(Debug, Clone, Default)]
 pub struct ExecutionResult {
     /// 是否成功
     pub success: bool,
@@ -608,7 +605,6 @@ pub struct ExecutionResult {
     /// 是否重试成功
     pub retry_success: bool,
 }
-
 
 // ============================================================================
 // 配置

@@ -1821,10 +1821,7 @@ pub(crate) async fn run_task(
             id: None,
             role: "system".to_string(),
             content: vec![ContentItem::InputText {
-                text: format!(
-                    "📚 ACE Context (loaded from previous conversations):\n{}",
-                    context
-                ),
+                text: format!("📚 ACE Context (loaded from previous conversations):\n{context}"),
             }],
         };
         sess.record_conversation_items(&turn_context, &[context_item])

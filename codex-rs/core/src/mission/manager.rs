@@ -1,6 +1,6 @@
-//! Mission Manager - Mission 生命周期管理
+//! Mission Manager - Mission Lifecycle Management
 //!
-//! 负责创建、更新和跟踪 Mission 状态
+//! Responsible for creating, updating and tracking Mission status
 
 use super::types::MissionContext;
 use super::types::TodoItem;
@@ -8,30 +8,30 @@ use codex_protocol::plan_tool::StepStatus;
 
 /// Mission Manager
 ///
-/// 管理 Mission 的创建、更新和状态跟踪
+/// Manages Mission creation, updates and status tracking
 pub struct MissionManager {
-    /// 当前活跃的 Mission (如果有)
+    /// Currently active Mission (if any)
     current_mission: Option<MissionContext>,
 }
 
 impl MissionManager {
-    /// 创建新的 Mission Manager
+    /// Create new Mission Manager
     pub fn new() -> Self {
         Self {
             current_mission: None,
         }
     }
 
-    /// 启动新的 Mission
+    /// Start new Mission
     ///
-    /// 如果已有活跃的 Mission，会先完成它
+    /// If there's an active Mission, complete it first
     pub fn start_mission(&mut self, description: String, session_id: String) -> &MissionContext {
-        // 如果有现有的 Mission，标记为完成
+        // If there's existing Mission, mark it as complete
         if let Some(ref mut mission) = self.current_mission {
             tracing::info!("Completing previous mission: {}", mission.description);
         }
 
-        // 创建新 Mission
+        // Create new Mission
         let mission = MissionContext::new(description.clone(), session_id);
         tracing::info!("Started new mission: {}", description);
 
@@ -39,21 +39,21 @@ impl MissionManager {
         self.current_mission.as_ref().unwrap()
     }
 
-    /// 更新 TodoList
+    /// Update TodoList
     ///
-    /// 如果没有活跃的 Mission，会自动创建一个
-    /// 返回新完成的 Todo 项（需要触发 Reflector 的）
+    /// Auto-create Mission if no active Mission exists
+    /// Return newly completed Todo items (need to trigger Reflector)
     pub fn update_todos(
         &mut self,
         steps: Vec<(String, StepStatus)>,
         session_id: String,
     ) -> Vec<TodoItem> {
-        // 如果没有当前 Mission，创建一个
+        // Create Mission if no current Mission exists
         if self.current_mission.is_none() {
-            self.start_mission("Untitled Mission".to_string(), session_id.clone());
+            self.start_mission("Untitled Mission".to_string(), session_id);
         }
 
-        // 更新 todos
+        // Update todos
         if let Some(ref mut mission) = self.current_mission {
             let newly_completed = mission.update_todos(steps);
 
@@ -69,7 +69,7 @@ impl MissionManager {
         }
     }
 
-    /// 标记 Todo 为已反射
+    /// Mark Todo as reflected
     pub fn mark_todo_reflected(&mut self, todo_id: &str) {
         if let Some(ref mut mission) = self.current_mission {
             mission.mark_todo_reflected(todo_id);
@@ -77,17 +77,17 @@ impl MissionManager {
         }
     }
 
-    /// 获取当前 Mission
+    /// Get current Mission
     pub fn current_mission(&self) -> Option<&MissionContext> {
         self.current_mission.as_ref()
     }
 
-    /// 获取当前 Mission (可变)
+    /// Get current Mission (mutable)
     pub fn current_mission_mut(&mut self) -> Option<&mut MissionContext> {
         self.current_mission.as_mut()
     }
 
-    /// 完成当前 Mission
+    /// Complete current Mission
     pub fn complete_current_mission(&mut self) {
         if let Some(ref mission) = self.current_mission {
             tracing::info!("Completed mission: {}", mission.description);
@@ -95,7 +95,7 @@ impl MissionManager {
         self.current_mission = None;
     }
 
-    /// 获取未反射的已完成 Todos
+    /// Get unreflected completed Todos
     pub fn get_unreflected_completed_todos(&self) -> Vec<&TodoItem> {
         self.current_mission
             .as_ref()
@@ -119,10 +119,10 @@ mod tests {
         let mut manager = MissionManager::new();
         assert!(manager.current_mission().is_none());
 
-        manager.start_mission("编写数独游戏".to_string(), "session-123".to_string());
+        manager.start_mission("Write Sudoku Game".to_string(), "session-123".to_string());
 
         let mission = manager.current_mission().unwrap();
-        assert_eq!(mission.description, "编写数独游戏");
+        assert_eq!(mission.description, "Write Sudoku Game");
     }
 
     #[test]
@@ -130,13 +130,13 @@ mod tests {
         let mut manager = MissionManager::new();
 
         let steps = vec![
-            ("步骤1".to_string(), StepStatus::Completed),
-            ("步骤2".to_string(), StepStatus::Pending),
+            ("Step1".to_string(), StepStatus::Completed),
+            ("Step2".to_string(), StepStatus::Pending),
         ];
 
         let newly_completed = manager.update_todos(steps, "session-123".to_string());
 
-        // 应该自动创建了 Mission
+        // Mission should be auto-created
         assert!(manager.current_mission().is_some());
         assert_eq!(newly_completed.len(), 1);
     }
@@ -144,32 +144,32 @@ mod tests {
     #[test]
     fn test_update_todos_returns_newly_completed() {
         let mut manager = MissionManager::new();
-        manager.start_mission("测试任务".to_string(), "session-123".to_string());
+        manager.start_mission("Test Task".to_string(), "session-123".to_string());
 
-        // 第一次更新
+        // First update
         let steps = vec![
-            ("步骤1".to_string(), StepStatus::Completed),
-            ("步骤2".to_string(), StepStatus::Pending),
+            ("Step1".to_string(), StepStatus::Completed),
+            ("Step2".to_string(), StepStatus::Pending),
         ];
         let newly_completed = manager.update_todos(steps, "session-123".to_string());
         assert_eq!(newly_completed.len(), 1);
-        assert_eq!(newly_completed[0].step, "步骤1");
+        assert_eq!(newly_completed[0].step, "Step1");
 
-        // 第二次更新：步骤2完成
+        // Second update: Step2 completed
         let steps = vec![
-            ("步骤1".to_string(), StepStatus::Completed),
-            ("步骤2".to_string(), StepStatus::Completed),
+            ("Step1".to_string(), StepStatus::Completed),
+            ("Step2".to_string(), StepStatus::Completed),
         ];
         let newly_completed = manager.update_todos(steps, "session-123".to_string());
         assert_eq!(newly_completed.len(), 1);
-        assert_eq!(newly_completed[0].step, "步骤2");
+        assert_eq!(newly_completed[0].step, "Step2");
     }
 
     #[test]
     fn test_mark_todo_reflected() {
         let mut manager = MissionManager::new();
 
-        let steps = vec![("步骤1".to_string(), StepStatus::Completed)];
+        let steps = vec![("Step1".to_string(), StepStatus::Completed)];
         manager.update_todos(steps, "session-123".to_string());
 
         let mission = manager.current_mission().unwrap();
@@ -186,27 +186,27 @@ mod tests {
         let mut manager = MissionManager::new();
 
         let steps = vec![
-            ("步骤1".to_string(), StepStatus::Completed),
-            ("步骤2".to_string(), StepStatus::Completed),
-            ("步骤3".to_string(), StepStatus::Pending),
+            ("Step1".to_string(), StepStatus::Completed),
+            ("Step2".to_string(), StepStatus::Completed),
+            ("Step3".to_string(), StepStatus::Pending),
         ];
         manager.update_todos(steps, "session-123".to_string());
 
-        // 标记第一个为已反射
+        // Mark first one as reflected
         let mission = manager.current_mission().unwrap();
         let todo_id = mission.todos[0].id.clone();
         manager.mark_todo_reflected(&todo_id);
 
-        // 应该只返回第二个
+        // Should only return the second one
         let unreflected = manager.get_unreflected_completed_todos();
         assert_eq!(unreflected.len(), 1);
-        assert_eq!(unreflected[0].step, "步骤2");
+        assert_eq!(unreflected[0].step, "Step2");
     }
 
     #[test]
     fn test_complete_current_mission() {
         let mut manager = MissionManager::new();
-        manager.start_mission("测试任务".to_string(), "session-123".to_string());
+        manager.start_mission("Test Task".to_string(), "session-123".to_string());
 
         assert!(manager.current_mission().is_some());
 
@@ -218,10 +218,10 @@ mod tests {
     fn test_start_mission_replaces_previous() {
         let mut manager = MissionManager::new();
 
-        manager.start_mission("任务1".to_string(), "session-1".to_string());
-        assert_eq!(manager.current_mission().unwrap().description, "任务1");
+        manager.start_mission("Task1".to_string(), "session-1".to_string());
+        assert_eq!(manager.current_mission().unwrap().description, "Task1");
 
-        manager.start_mission("任务2".to_string(), "session-2".to_string());
-        assert_eq!(manager.current_mission().unwrap().description, "任务2");
+        manager.start_mission("Task2".to_string(), "session-2".to_string());
+        assert_eq!(manager.current_mission().unwrap().description, "Task2");
     }
 }

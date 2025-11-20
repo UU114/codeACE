@@ -1,6 +1,6 @@
-//! ACE CLI 命令处理
+//! ACE CLI command processing
 //!
-//! 提供用户管理 ACE playbook 的命令行接口。
+//! Provides command-line interface for users to manage ACE playbook.
 
 use anyhow::Context;
 use anyhow::Result;
@@ -10,42 +10,42 @@ use std::path::PathBuf;
 use super::config_loader::ACEConfigLoader;
 use super::storage::BulletStorage;
 
-/// ACE CLI 命令
+/// ACE CLI commands
 #[derive(Debug, Clone)]
 pub enum AceCommand {
-    /// 显示 ACE 状态和统计信息
+    /// Display ACE status and statistics
     Status,
 
-    /// 显示最近的学习条目
+    /// Display recent learning entries
     Show { limit: usize },
 
-    /// 清空 playbook
+    /// Clear playbook
     Clear {
-        /// 是否跳过归档直接删除
+        /// Skip archiving and delete directly
         no_archive: bool,
     },
 
-    /// 搜索 playbook
+    /// Search playbook
     Search { query: String },
 
-    /// 显示配置信息
+    /// Display configuration information
     Config,
 }
 
-/// CLI 命令处理器
+/// CLI command handler
 pub struct AceCliHandler {
     codex_home: std::path::PathBuf,
 }
 
 impl AceCliHandler {
-    /// 创建新的 CLI 处理器
+    /// Create new CLI handler
     pub fn new(codex_home: &Path) -> Self {
         Self {
             codex_home: codex_home.to_path_buf(),
         }
     }
 
-    /// 执行命令
+    /// Execute command
     pub async fn execute(&self, command: AceCommand) -> Result<()> {
         match command {
             AceCommand::Status => self.handle_status().await,
@@ -56,24 +56,24 @@ impl AceCliHandler {
         }
     }
 
-    /// 处理 status 命令
+    /// Handle status command
     pub async fn handle_status(&self) -> Result<()> {
-        // 加载配置
+        // Load configuration
         let config_loader = ACEConfigLoader::new(&self.codex_home);
         let config = config_loader
             .load_or_create()
             .await
             .context("Failed to load ACE config")?;
 
-        // 加载 storage
+        // Load storage
         let storage_path = shellexpand::tilde(&config.storage_path).to_string();
-        let storage = BulletStorage::new(&PathBuf::from(storage_path), config.max_entries)
+        let storage = BulletStorage::new(PathBuf::from(storage_path), config.max_entries)
             .context("Failed to open ACE storage")?;
 
-        // 获取统计信息
+        // Get statistics
         let stats = storage.get_stats().await?;
 
-        // 显示状态
+        // Display status
         println!("📚 ACE (Agentic Coding Environment) Status\n");
         println!("Configuration:");
         println!(
@@ -92,7 +92,7 @@ impl AceCliHandler {
         if !stats.bullets_by_section.is_empty() {
             println!("Bullets by Section:");
             for (section, count) in &stats.bullets_by_section {
-                println!("  {:?}: {}", section, count);
+                println!("  {section:?}: {count}");
             }
             println!();
         }
@@ -103,7 +103,7 @@ impl AceCliHandler {
             tools.sort_by_key(|(_, count)| std::cmp::Reverse(*count));
 
             for (tool, count) in tools.iter().take(10) {
-                println!("  {}: {} times", tool, count);
+                println!("  {tool}: {count} times");
             }
             println!();
         }
@@ -118,17 +118,17 @@ impl AceCliHandler {
         Ok(())
     }
 
-    /// 处理 show 命令
+    /// Handle show command
     pub async fn handle_show(&self, limit: usize) -> Result<()> {
-        // 加载配置
+        // Load configuration
         let config_loader = ACEConfigLoader::new(&self.codex_home);
         let config = config_loader.load_or_create().await?;
 
-        // 加载 storage
+        // Load storage
         let storage_path = shellexpand::tilde(&config.storage_path).to_string();
-        let storage = BulletStorage::new(&PathBuf::from(storage_path), config.max_entries)?;
+        let storage = BulletStorage::new(PathBuf::from(storage_path), config.max_entries)?;
 
-        // 加载所有 bullets
+        // Load all bullets
         let playbook = storage.load_playbook().await?;
         let bullets: Vec<_> = playbook.all_bullets().into_iter().cloned().collect();
 
@@ -144,7 +144,7 @@ impl AceCliHandler {
             bullets.len()
         );
 
-        // 按时间倒序显示
+        // Display in reverse chronological order
         let mut sorted_bullets = bullets.clone();
         sorted_bullets.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
 
@@ -156,20 +156,20 @@ impl AceCliHandler {
                 bullet.updated_at.format("%Y-%m-%d %H:%M")
             );
 
-            // 显示内容（截断）
+            // Display content (truncated)
             let content = if bullet.content.len() > 80 {
                 format!("{}...", &bullet.content[..80])
             } else {
                 bullet.content.clone()
             };
-            println!("   {}", content);
+            println!("   {content}");
 
-            // 显示工具
+            // Display tools
             if !bullet.metadata.related_tools.is_empty() {
                 println!("   Tools: {}", bullet.metadata.related_tools.join(", "));
             }
 
-            // 显示成功率
+            // Display success rate
             let total = bullet.metadata.success_count + bullet.metadata.failure_count;
             if total > 0 {
                 let rate = (bullet.metadata.success_count as f32 / total as f32) * 100.0;
@@ -193,17 +193,17 @@ impl AceCliHandler {
         Ok(())
     }
 
-    /// 处理 clear 命令
+    /// Handle clear command
     pub async fn handle_clear(&self, no_archive: bool) -> Result<()> {
-        // 加载配置
+        // Load configuration
         let config_loader = ACEConfigLoader::new(&self.codex_home);
         let config = config_loader.load_or_create().await?;
 
-        // 加载 storage
+        // Load storage
         let storage_path = shellexpand::tilde(&config.storage_path).to_string();
-        let storage = BulletStorage::new(&PathBuf::from(storage_path), config.max_entries)?;
+        let storage = BulletStorage::new(PathBuf::from(storage_path), config.max_entries)?;
 
-        // 获取当前条目数
+        // Get current entry count
         let playbook = storage.load_playbook().await?;
         let count = playbook.all_bullets().len();
 
@@ -212,7 +212,7 @@ impl AceCliHandler {
             return Ok(());
         }
 
-        // 确认
+        // Confirm
         println!(
             "⚠️  This will {} {} learning entries.",
             if no_archive { "DELETE" } else { "ARCHIVE" },
@@ -238,7 +238,7 @@ impl AceCliHandler {
             return Ok(());
         }
 
-        // 执行清空
+        // Execute clear
         if no_archive {
             storage.clear_without_archive().await?;
             println!("✅ Playbook cleared (entries deleted).");
@@ -250,21 +250,21 @@ impl AceCliHandler {
         Ok(())
     }
 
-    /// 处理 search 命令
+    /// Handle search command
     pub async fn handle_search(&self, query: &str) -> Result<()> {
-        // 加载配置
+        // Load configuration
         let config_loader = ACEConfigLoader::new(&self.codex_home);
         let config = config_loader.load_or_create().await?;
 
-        // 加载 storage
+        // Load storage
         let storage_path = shellexpand::tilde(&config.storage_path).to_string();
-        let storage = BulletStorage::new(&PathBuf::from(storage_path), config.max_entries)?;
+        let storage = BulletStorage::new(PathBuf::from(storage_path), config.max_entries)?;
 
-        // 搜索
+        // Search
         let results = storage.query_bullets(query, 20).await?;
 
         if results.is_empty() {
-            println!("🔍 No results found for '{}'", query);
+            println!("🔍 No results found for '{query}'");
             return Ok(());
         }
 
@@ -289,7 +289,7 @@ impl AceCliHandler {
         Ok(())
     }
 
-    /// 处理 config 命令
+    /// Handle config command
     pub async fn handle_config(&self) -> Result<()> {
         let config_loader = ACEConfigLoader::new(&self.codex_home);
         let config = config_loader.load_or_create().await?;
@@ -335,7 +335,7 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let handler = AceCliHandler::new(temp_dir.path());
 
-        // 测试 config 命令（会自动创建配置）
+        // Test config command (will auto-create config)
         let result = handler.handle_config().await;
         assert!(result.is_ok());
     }
@@ -345,7 +345,7 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let handler = AceCliHandler::new(temp_dir.path());
 
-        // Status 命令应该能处理空 playbook
+        // Status command should handle empty playbook
         let result = handler.handle_status().await;
         assert!(result.is_ok());
     }

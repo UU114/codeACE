@@ -105,12 +105,12 @@ pub(crate) async fn handle_update_plan(
 ) -> Result<String, FunctionCallError> {
     let args = parse_update_plan_arguments(&arguments)?;
 
-    // 发送 PlanUpdate 事件
+    // Send PlanUpdate event
     session
         .send_event(turn_context, EventMsg::PlanUpdate(args.clone()))
         .await;
 
-    // Mission/Todo 处理（仅在 ACE 功能启用时）
+    // Mission/Todo handling (only when ACE feature is enabled)
     #[cfg(feature = "ace")]
     {
         handle_mission_todos(session, turn_context, &args).await;
@@ -119,14 +119,14 @@ pub(crate) async fn handle_update_plan(
     Ok("Plan updated".to_string())
 }
 
-/// 处理 Mission/Todo 更新（ACE 功能）
+/// Handle Mission/Todo updates (ACE feature)
 #[cfg(feature = "ace")]
 async fn handle_mission_todos(
     session: &Session,
     turn_context: &TurnContext,
     args: &UpdatePlanArgs,
 ) {
-    // 1. 更新 MissionManager
+    // 1. Update MissionManager
     let newly_completed = {
         let mut mission_mgr = session.services.mission_manager.lock().await;
         let steps: Vec<(String, codex_protocol::plan_tool::StepStatus)> = args
@@ -138,43 +138,43 @@ async fn handle_mission_todos(
         mission_mgr.update_todos(steps, turn_context.sub_id.clone())
     };
 
-    // 2. 如果有新完成的 Todos，触发 Reflector
-    if !newly_completed.is_empty() {
-        if let Some(ref ace_plugin) = session.services.ace_plugin {
-            for todo in newly_completed {
-                tracing::info!("✅ Todo completed: {}", todo.step);
+    // 2. If there are newly completed Todos, trigger Reflector
+    if !newly_completed.is_empty()
+        && let Some(ref ace_plugin) = session.services.ace_plugin
+    {
+        for todo in newly_completed {
+            tracing::info!("✅ Todo completed: {}", todo.step);
 
-                // 构建对话上下文（包含 explanation 和 plan 信息）
-                let conversation_context = build_todo_context(args, &todo);
+            // Build conversation context (contains explanation and plan info)
+            let conversation_context = build_todo_context(args, &todo);
 
-                // 触发 Reflector
-                ace_plugin.on_todo_completed(
-                    todo.step.clone(),
-                    conversation_context,
-                    turn_context.sub_id.clone(),
-                );
+            // Trigger Reflector
+            ace_plugin.on_todo_completed(
+                todo.step.clone(),
+                conversation_context,
+                turn_context.sub_id.clone(),
+            );
 
-                // 标记为已反射
-                let mut mission_mgr = session.services.mission_manager.lock().await;
-                mission_mgr.mark_todo_reflected(&todo.id);
-            }
+            // Mark as reflected
+            let mut mission_mgr = session.services.mission_manager.lock().await;
+            mission_mgr.mark_todo_reflected(&todo.id);
         }
     }
 }
 
-/// 构建 Todo 完成的对话上下文
+/// Build conversation context for completed Todo
 #[cfg(feature = "ace")]
 fn build_todo_context(args: &UpdatePlanArgs, todo: &crate::mission::TodoItem) -> String {
     let mut context = String::new();
 
-    // 添加 explanation（如果有）
+    // Add explanation (if any)
     if let Some(ref explanation) = args.explanation {
         context.push_str("## Context\n");
         context.push_str(explanation);
         context.push_str("\n\n");
     }
 
-    // 添加完整的 plan
+    // Add complete plan
     context.push_str("## Plan Overview\n");
     for (idx, item) in args.plan.iter().enumerate() {
         let status_symbol = match item.status {
