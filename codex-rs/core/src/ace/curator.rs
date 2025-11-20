@@ -4,6 +4,7 @@
 //! 结构化的 Bullets，决定分类，生成元数据，并输出 DeltaContext。
 
 use super::code_analyzer::CodeAnalyzer;
+use super::content_classifier::ContentClassifier;
 use super::types::Applicability;
 use super::types::Bullet;
 use super::types::BulletCodeContent;
@@ -18,6 +19,7 @@ use anyhow::Result;
 use regex::Regex;
 
 /// Curator MVP - 将洞察组织成结构化 bullets
+#[derive(Default)]
 pub struct CuratorMVP {
     config: CuratorConfig,
     code_analyzer: CodeAnalyzer,
@@ -43,16 +45,38 @@ impl CuratorMVP {
         let start = std::time::Instant::now();
         let mut delta = DeltaContext::new(session_id.clone());
 
-        // 过滤低重要性的 insights
+        // 1. 过滤低重要性的 insights
         let valuable_insights: Vec<_> = insights
             .into_iter()
             .filter(|i| i.importance >= self.config.min_importance)
             .collect();
 
-        delta.metadata.insights_processed = valuable_insights.len();
+        // 2. 【LAPS 新增】内容质量和长度验证
+        let mut validated_insights = Vec::new();
+        let mut rejected_count = 0;
 
-        // 为每个 insight 生成 bullet
         for insight in valuable_insights {
+            let (valid, reason) = ContentClassifier::validate_content(&insight.content);
+
+            if valid {
+                validated_insights.push(insight);
+                tracing::debug!("接受 insight: {}", reason);
+            } else {
+                rejected_count += 1;
+                tracing::warn!("拒绝 insight: {}", reason);
+            }
+        }
+
+        tracing::info!(
+            "内容验证: {} 通过, {} 被拒绝",
+            validated_insights.len(),
+            rejected_count
+        );
+
+        delta.metadata.insights_processed = validated_insights.len();
+
+        // 3. 为每个验证通过的 insight 生成 bullet
+        for insight in validated_insights {
             let bullet = self.create_bullet_from_insight(insight, &session_id)?;
             delta.new_bullets.push(bullet);
         }
@@ -141,24 +165,38 @@ impl CuratorMVP {
 
     /// 创建细粒度 metadata
     fn create_metadata(&self, insight: &RawInsight) -> Result<BulletMetadata> {
+        let success_count = if insight.context.execution_success {
+            1
+        } else {
+            0
+        };
+        let failure_count = if !insight.context.execution_success {
+            1
+        } else {
+            0
+        };
+        let total = success_count + failure_count;
+        let success_rate = if total > 0 {
+            success_count as f32 / total as f32
+        } else {
+            0.0
+        };
+
         let metadata = BulletMetadata {
             importance: insight.importance,
             source_type: self.determine_source_type(insight),
             applicability: self.extract_applicability(insight),
             reference_count: 0,
-            success_count: if insight.context.execution_success {
-                1
-            } else {
-                0
-            },
-            failure_count: if !insight.context.execution_success {
-                1
-            } else {
-                0
-            },
+            success_count,
+            failure_count,
             related_tools: insight.context.tools_used.clone(),
             related_file_patterns: Vec::new(), // MVP 阶段留空
             confidence: 1.0,
+            // LAPS 新增字段
+            recall_count: 0,
+            last_recall: None,
+            recall_contexts: Vec::new(),
+            success_rate,
         };
 
         Ok(metadata)
@@ -227,7 +265,7 @@ impl CuratorMVP {
 
         // 工具标签
         for tool in &insight.context.tools_used {
-            tags.push(format!("tool:{}", tool));
+            tags.push(format!("tool:{tool}"));
         }
 
         // 成功/失败标签
@@ -263,7 +301,7 @@ impl CuratorMVP {
         // 编程语言标签
         for lang in &["rust", "python", "javascript", "typescript", "go", "java"] {
             if content_lower.contains(lang) {
-                tags.push(format!("lang:{}", lang));
+                tags.push(format!("lang:{lang}"));
             }
         }
 
@@ -275,14 +313,6 @@ impl CuratorMVP {
     }
 }
 
-impl Default for CuratorMVP {
-    fn default() -> Self {
-        Self {
-            config: CuratorConfig::default(),
-            code_analyzer: CodeAnalyzer::new(),
-        }
-    }
-}
 
 #[cfg(test)]
 mod tests {
@@ -313,7 +343,11 @@ mod tests {
     async fn test_curator_generates_bullets() {
         let curator = CuratorMVP::new(CuratorConfig::default());
 
-        let insight = create_test_insight("使用命令: cargo test", InsightCategory::ToolUsage, true);
+        let insight = create_test_insight(
+            "使用 cargo test 命令可以运行项目的所有测试",
+            InsightCategory::ToolUsage,
+            true,
+        );
 
         let delta = curator
             .process_insights(vec![insight], "test-session".to_string())
@@ -336,27 +370,27 @@ mod tests {
         // 测试各种分类
         let test_cases = vec![
             (
-                "使用命令: cargo build",
+                "使用 cargo build 命令可以编译 Rust 项目",
                 InsightCategory::ToolUsage,
                 BulletSection::ToolUsageTips,
             ),
             (
-                "错误: Compilation failed",
+                "遇到错误: Compilation failed 时需要检查语法错误",
                 InsightCategory::ErrorHandling,
                 BulletSection::TroubleshootingAndPitfalls,
             ),
             (
-                "执行了测试流程",
+                "执行测试流程时应该先运行单元测试再运行集成测试",
                 InsightCategory::Pattern,
                 BulletSection::StrategiesAndRules,
             ),
             (
-                "API 使用指南",
+                "API 使用指南: 调用 RESTful 接口前需要先进行身份认证，获取有效的 access_token 后才能访问受保护的资源",
                 InsightCategory::Knowledge,
                 BulletSection::ApiUsageGuides,
             ),
             (
-                "包含 rust 代码片段",
+                "包含 rust 代码片段的示例可以帮助理解概念",
                 InsightCategory::Knowledge,
                 BulletSection::General,
             ),
@@ -382,12 +416,18 @@ mod tests {
         };
         let curator = CuratorMVP::new(config);
 
-        let mut low_importance =
-            create_test_insight("Low importance", InsightCategory::Knowledge, true);
+        let mut low_importance = create_test_insight(
+            "This is a low importance insight for testing",
+            InsightCategory::Knowledge,
+            true,
+        );
         low_importance.importance = 0.5;
 
-        let mut high_importance =
-            create_test_insight("High importance", InsightCategory::Knowledge, true);
+        let mut high_importance = create_test_insight(
+            "This is a high importance insight for testing",
+            InsightCategory::Knowledge,
+            true,
+        );
         high_importance.importance = 0.9;
 
         let delta = curator
@@ -400,7 +440,7 @@ mod tests {
 
         // 只有高重要性的 insight 应该被转换为 bullet
         assert_eq!(delta.new_bullets.len(), 1);
-        assert_eq!(delta.new_bullets[0].content, "High importance");
+        assert!(delta.new_bullets[0].content.contains("high importance"));
         assert_eq!(delta.metadata.insights_processed, 1);
     }
 
@@ -408,8 +448,11 @@ mod tests {
     async fn test_curator_metadata_generation() {
         let curator = CuratorMVP::new(CuratorConfig::default());
 
-        let mut insight =
-            create_test_insight("Test rust command", InsightCategory::ToolUsage, true);
+        let mut insight = create_test_insight(
+            "使用 Rust 命令行工具处理文件操作",
+            InsightCategory::ToolUsage,
+            true,
+        );
         insight.context.tools_used = vec!["bash".to_string(), "cargo".to_string()];
 
         let delta = curator
@@ -438,7 +481,7 @@ mod tests {
         let curator = CuratorMVP::new(CuratorConfig::default());
 
         let insight = create_test_insight(
-            "使用 rust 测试命令 cargo test",
+            "使用 rust 测试命令 cargo test 可以运行所有测试用例",
             InsightCategory::ToolUsage,
             true,
         );
@@ -503,9 +546,21 @@ mod tests {
         let curator = CuratorMVP::new(CuratorConfig::default());
 
         let insights = vec![
-            create_test_insight("Insight 1", InsightCategory::ToolUsage, true),
-            create_test_insight("Insight 2", InsightCategory::Pattern, true),
-            create_test_insight("Insight 3", InsightCategory::Knowledge, true),
+            create_test_insight(
+                "使用 cargo test 命令可以运行 Rust 项目中的所有测试用例",
+                InsightCategory::ToolUsage,
+                true,
+            ),
+            create_test_insight(
+                "处理异步操作时应使用 async/await 模式，可以提高代码可读性",
+                InsightCategory::Pattern,
+                true,
+            ),
+            create_test_insight(
+                "Rust 的所有权系统可以在编译期防止内存错误和数据竞争",
+                InsightCategory::Knowledge,
+                true,
+            ),
         ];
 
         let delta = curator

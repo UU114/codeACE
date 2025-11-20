@@ -4,12 +4,18 @@
 //!
 //! 基于 Agentic Context Engineering 论文实现，采用 Bullet-based 架构。
 
+pub mod background_optimizer;
 pub mod cli;
 pub mod code_analyzer;
 pub mod config_loader;
+pub mod content_classifier;
 pub mod context;
 pub mod curator;
+pub mod knowledge_scope;
+pub mod lightweight_index;
+pub mod recall_tracker;
 pub mod reflector;
+pub mod similarity;
 pub mod storage;
 pub mod types;
 
@@ -142,7 +148,7 @@ impl ACEPlugin {
         for bullet in &bullets {
             by_section
                 .entry(bullet.section.clone())
-                .or_insert_with(Vec::new)
+                .or_default()
                 .push(bullet);
         }
 
@@ -166,7 +172,7 @@ impl ACEPlugin {
                 if total > 0 {
                     let success_rate =
                         (bullet.metadata.success_count as f32 / total as f32) * 100.0;
-                    output.push_str(&format!("  - Success rate: {:.0}%\n", success_rate));
+                    output.push_str(&format!("  - Success rate: {success_rate:.0}%\n"));
                 }
 
                 output.push('\n');
@@ -218,7 +224,7 @@ impl ACEPlugin {
             // 构造执行结果（Todo 完成场景）
             let execution_result = ExecutionResult {
                 success: true,
-                output: Some(format!("Completed todo: {}", todo_step)),
+                output: Some(format!("Completed todo: {todo_step}")),
                 error: None,
                 tools_used: Vec::new(),
                 errors: Vec::new(),
@@ -228,7 +234,7 @@ impl ACEPlugin {
             // 1. Reflector 分析
             let insights = match reflector
                 .analyze_conversation(
-                    &format!("Todo: {}", todo_step),
+                    &format!("Todo: {todo_step}"),
                     &conversation_context,
                     &execution_result,
                     session_id.clone(),

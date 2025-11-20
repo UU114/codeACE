@@ -14,7 +14,7 @@ workspace = true
 [features]
 # ACE框架支持（默认启用）
 default = ["ace"]
-ace = ["dep:regex", "dep:shellexpand"]
+ace = ["dep:regex", "dep:shellexpand", "dep:lru"]
 
 [dependencies]
 anyhow = { workspace = true }
@@ -94,6 +94,7 @@ codex_windows_sandbox = { package = "codex-windows-sandbox", path = "../windows-
 # ACE框架可选依赖（仅在启用 ace feature 时）
 regex = { version = "1.10", optional = true }
 shellexpand = { version = "3.1", optional = true }
+lru = { version = "0.12", optional = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 landlock = { workspace = true }

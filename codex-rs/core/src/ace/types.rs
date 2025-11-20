@@ -77,7 +77,7 @@ pub enum BulletCodeContent {
 }
 
 /// 分类（参考论文 Figure 3）
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum BulletSection {
     /// 策略和硬性规则
     StrategiesAndRules,
@@ -132,6 +132,23 @@ pub struct BulletMetadata {
 
     /// 置信度（0.0 - 1.0，MVP 可固定为 1.0）
     pub confidence: f32,
+
+    // ============ LAPS 新增字段 ============
+    /// 被召回次数
+    #[serde(default)]
+    pub recall_count: u32,
+
+    /// 最后召回时间
+    #[serde(default)]
+    pub last_recall: Option<DateTime<Utc>>,
+
+    /// 最近召回的上下文（保留最近10次）
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub recall_contexts: Vec<String>,
+
+    /// 成功率（0.0 - 1.0，基于 success_count 和 failure_count）
+    #[serde(default)]
+    pub success_rate: f32,
 }
 
 /// 来源类型
@@ -152,6 +169,7 @@ pub enum SourceType {
 
 /// 适用性范围
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct Applicability {
     /// 适用的编程语言（空表示通用）
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
@@ -170,16 +188,6 @@ pub struct Applicability {
     pub project_types: Vec<String>,
 }
 
-impl Default for Applicability {
-    fn default() -> Self {
-        Self {
-            languages: Vec::new(),
-            tools: Vec::new(),
-            platforms: Vec::new(),
-            project_types: Vec::new(),
-        }
-    }
-}
 
 impl Bullet {
     /// 创建新 bullet
@@ -239,7 +247,89 @@ impl Default for BulletMetadata {
             related_tools: Vec::new(),
             related_file_patterns: Vec::new(),
             confidence: 1.0,
+            // LAPS 新增字段
+            recall_count: 0,
+            last_recall: None,
+            recall_contexts: Vec::new(),
+            success_rate: 0.0,
         }
+    }
+}
+
+impl BulletMetadata {
+    /// 【LAPS】计算动态权重
+    ///
+    /// 基于多个因子计算 bullet 的动态权重：
+    /// - 召回频率（对数增长，避免过度偏向）
+    /// - 成功率（质量指标）
+    /// - 时效性（最近使用的更重要）
+    ///
+    /// # 返回
+    /// 动态权重值（0.0 - 无上限，通常在 0.0 - 5.0 之间）
+    pub fn calculate_dynamic_weight(&self) -> f32 {
+        // 召回频率因子（对数增长）
+        // 使用 ln(1 + recall_count) 避免对高频内容过度偏向
+        let recall_factor = (1.0 + self.recall_count as f32).ln();
+
+        // 成功率因子（0.5 - 1.0）
+        // 即使没有使用记录，也给予基础权重 0.5
+        let total = self.success_count + self.failure_count;
+        let success_rate = if total > 0 {
+            self.success_count as f32 / total as f32
+        } else {
+            0.5 // 默认50%
+        };
+        let success_factor = 0.5 + success_rate * 0.5;
+
+        // 时效性因子（0.5 - 1.0）
+        // 最近使用的内容权重更高
+        let recency_factor = if let Some(last_recall) = self.last_recall {
+            let days_since = (Utc::now() - last_recall).num_days();
+            // 使用指数衰减，7天内保持高权重
+            let decay = 1.0 / (1.0 + (days_since as f32) * 0.01);
+            0.5 + decay * 0.5
+        } else {
+            0.5 // 从未被召回，给予基础权重
+        };
+
+        // 综合权重 = 基础重要性 × 召回频率 × 成功率 × 时效性
+        self.importance * recall_factor * success_factor * recency_factor
+    }
+
+    /// 【LAPS】记录召回
+    ///
+    /// 当 bullet 被召回使用时调用此方法，更新统计信息。
+    ///
+    /// # 参数
+    /// - `context`: 召回时的上下文描述
+    /// - `success`: 是否成功应用
+    pub fn record_recall(&mut self, context: String, success: bool) {
+        // 增加召回计数
+        self.recall_count += 1;
+
+        // 更新最后召回时间
+        self.last_recall = Some(Utc::now());
+
+        // 保留最近10次上下文
+        self.recall_contexts.push(context);
+        if self.recall_contexts.len() > 10 {
+            self.recall_contexts.remove(0);
+        }
+
+        // 更新成功/失败计数
+        if success {
+            self.success_count += 1;
+        } else {
+            self.failure_count += 1;
+        }
+
+        // 重新计算成功率
+        let total = self.success_count + self.failure_count;
+        self.success_rate = if total > 0 {
+            self.success_count as f32 / total as f32
+        } else {
+            0.0
+        };
     }
 }
 
@@ -300,7 +390,7 @@ impl Playbook {
         let section = bullet.section.clone();
         self.bullets
             .entry(section.clone())
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(bullet);
 
         self.metadata.total_bullets += 1;
@@ -324,6 +414,23 @@ impl Playbook {
         for bullets in self.bullets.values_mut() {
             if let Some(pos) = bullets.iter().position(|b| b.id == updated.id) {
                 bullets[pos] = updated;
+                self.version += 1;
+                self.last_updated = Utc::now();
+                return true;
+            }
+        }
+        false
+    }
+
+    /// 删除 bullet（返回是否成功）
+    pub fn remove_bullet(&mut self, id: &str) -> bool {
+        for (section, bullets) in self.bullets.iter_mut() {
+            if let Some(pos) = bullets.iter().position(|b| b.id == id) {
+                bullets.remove(pos);
+                self.metadata.total_bullets = self.metadata.total_bullets.saturating_sub(1);
+                if let Some(count) = self.metadata.section_counts.get_mut(section) {
+                    *count = count.saturating_sub(1);
+                }
                 self.version += 1;
                 self.last_updated = Utc::now();
                 return true;
@@ -481,6 +588,7 @@ impl DeltaContext {
 
 /// 执行结果
 #[derive(Debug, Clone)]
+#[derive(Default)]
 pub struct ExecutionResult {
     /// 是否成功
     pub success: bool,
@@ -501,18 +609,6 @@ pub struct ExecutionResult {
     pub retry_success: bool,
 }
 
-impl Default for ExecutionResult {
-    fn default() -> Self {
-        Self {
-            success: false,
-            output: None,
-            error: None,
-            tools_used: Vec::new(),
-            errors: Vec::new(),
-            retry_success: false,
-        }
-    }
-}
 
 // ============================================================================
 // 配置
