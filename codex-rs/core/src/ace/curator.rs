@@ -3,6 +3,7 @@
 //! Curator 接收 Reflector 输出的 RawInsights，将它们组织成
 //! 结构化的 Bullets，决定分类，生成元数据，并输出 DeltaContext。
 
+use super::bullet_formatter::BulletContentBuilder;
 use super::code_analyzer::CodeAnalyzer;
 use super::content_classifier::ContentClassifier;
 use super::types::Applicability;
@@ -96,8 +97,56 @@ impl CuratorMVP {
             BulletSection::General
         };
 
+        // 使用 BulletContentBuilder 构建结构化内容
+        let mut builder = BulletContentBuilder::new()
+            .user_requirement(&insight.context.user_query)
+            .solution_approach(&insight.content);
+
+        // 设置解决结果
+        let result_text = if insight.context.execution_success {
+            "任务成功完成"
+        } else {
+            "任务执行失败或部分完成"
+        };
+        builder = builder.solution_result(result_text);
+
+        // 设置评价
+        let evaluation = if insight.context.execution_success {
+            "✅ 成功"
+        } else {
+            "⚠️  需要改进"
+        };
+        builder = builder.evaluation(evaluation);
+
+        // 如果有错误信息，添加错误
+        if let Some(ref error_msg) = insight.context.error_message {
+            if !error_msg.is_empty() {
+                builder = builder.add_error(error_msg);
+            }
+        }
+
+        // 如果有助手响应片段，作为总结分析
+        if !insight.context.assistant_response_snippet.is_empty() {
+            // 限制总结分析的长度（最多500字符）
+            let summary: String = insight
+                .context
+                .assistant_response_snippet
+                .chars()
+                .take(500)
+                .collect();
+            builder = builder.summary_analysis(summary);
+        }
+
+        // 添加使用的工具作为技术选型
+        for tool in &insight.context.tools_used {
+            builder = builder.add_tech_stack(tool);
+        }
+
+        // 构建最终的 content 字符串
+        let content = builder.build()?;
+
         // 创建 bullet
-        let mut bullet = Bullet::new(section, insight.content.clone(), session_id.to_string());
+        let mut bullet = Bullet::new(section, content, session_id.to_string());
 
         // 提取并分析代码（如果有）
         if let Some(code_content) = self.extract_and_analyze_code(&insight.content) {

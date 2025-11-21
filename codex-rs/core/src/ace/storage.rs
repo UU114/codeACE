@@ -46,6 +46,45 @@ impl BulletStorage {
         })
     }
 
+    /// 提取查询关键词（支持中英文混合）
+    ///
+    /// 策略：
+    /// 1. 先按空格分词（处理英文词和混合词）
+    /// 2. 对于每个分词结果，提取连续的中文字符和英文词
+    fn extract_keywords(query: &str) -> Vec<String> {
+        let mut keywords = Vec::new();
+
+        // 1. 按空格分词
+        for word in query.split_whitespace() {
+            // 添加完整的词
+            keywords.push(word.to_string());
+
+            // 2. 提取中文字符组（2个字符以上的连续中文）
+            let mut chinese_chars = String::new();
+            for ch in word.chars() {
+                if ch.is_ascii_alphabetic() || ch.is_ascii_digit() {
+                    // 遇到英文/数字，保存之前的中文词
+                    if chinese_chars.len() >= 2 { // 至少2个中文字
+                        keywords.push(chinese_chars.clone());
+                    }
+                    chinese_chars.clear();
+                } else if !ch.is_ascii_punctuation() && !ch.is_whitespace() {
+                    // 中文或其他非ASCII字符
+                    chinese_chars.push(ch);
+                }
+            }
+            // 保存最后的中文词
+            if chinese_chars.len() >= 2 {
+                keywords.push(chinese_chars);
+            }
+        }
+
+        // 去重并转小写
+        keywords.sort();
+        keywords.dedup();
+        keywords
+    }
+
     /// Load playbook
     pub async fn load_playbook(&self) -> Result<Playbook> {
         if !self.playbook_path.exists() {
@@ -143,6 +182,9 @@ impl BulletStorage {
         let query_lower = query.to_lowercase();
         let mut results = Vec::new();
 
+        // 提取查询关键词（支持中英文混合）
+        let keywords = Self::extract_keywords(&query_lower);
+
         // Simple keyword matching (MVP)
         for bullets in playbook.bullets.values() {
             for bullet in bullets {
@@ -152,13 +194,20 @@ impl BulletStorage {
                 // Calculate relevance score (only score basic matches)
                 let mut score = 0;
 
-                // Content match
+                // Content match - 完整查询字符串匹配
                 if content_lower.contains(&query_lower) {
                     score += 3;
                 }
 
+                // Content match - 按提取的关键词匹配
+                for keyword in &keywords {
+                    if content_lower.contains(keyword) {
+                        score += 2;
+                    }
+                }
+
                 // Tag match
-                for keyword in query_lower.split_whitespace() {
+                for keyword in &keywords {
                     if tags_str.contains(keyword) {
                         score += 2;
                     }

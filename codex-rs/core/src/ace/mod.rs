@@ -5,6 +5,7 @@
 //! 基于 Agentic Context Engineering 论文实现，采用 Bullet-based 架构。
 
 pub mod background_optimizer;
+pub mod bullet_formatter;
 pub mod cli;
 pub mod code_analyzer;
 pub mod config_loader;
