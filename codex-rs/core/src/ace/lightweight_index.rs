@@ -9,6 +9,73 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 
+/// 英文停用词表（与 storage.rs 保持一致）
+const STOP_WORDS: &[&str] = &[
+    "a", "an", "the", "is", "are", "was", "were", "be", "been", "being", "to", "of", "in", "for",
+    "on", "with", "at", "by", "from", "as", "it", "its", "this", "that", "these", "those", "which",
+    "what", "who", "how", "when", "where", "why", "all", "each", "every", "both", "few", "and",
+    "or", "but", "not", "no", "nor", "so", "yet", "if", "then", "else", "can", "could", "will",
+    "would", "shall", "should", "may", "might", "must", "do", "does", "did", "done", "doing",
+    "has", "have", "had", "having", "am", "your", "my", "our", "his", "her", "their", "me", "you",
+    "we", "he", "she",
+];
+
+/// 简单英文词干提取（与 storage.rs 保持一致）
+fn simple_stem(word: &str) -> Option<String> {
+    let word = word.to_lowercase();
+    let len = word.len();
+
+    if word.ends_with("ing") && len > 5 {
+        let stem = &word[..len - 3];
+        if stem.len() >= 2 {
+            let chars: Vec<char> = stem.chars().collect();
+            let last = chars[chars.len() - 1];
+            let second_last = chars[chars.len() - 2];
+            if last == second_last && !matches!(last, 'a' | 'e' | 'i' | 'o' | 'u') {
+                return Some(stem[..stem.len() - 1].to_string());
+            }
+        }
+        return Some(stem.to_string());
+    }
+
+    if word.ends_with("ed") && len > 4 {
+        return Some(word[..len - 2].to_string());
+    }
+
+    if word.ends_with("es") && len > 4 {
+        let without_es = &word[..len - 2];
+        if without_es.ends_with("ch")
+            || without_es.ends_with("sh")
+            || without_es.ends_with('x')
+            || without_es.ends_with('s')
+            || without_es.ends_with('z')
+        {
+            return Some(without_es.to_string());
+        }
+        return Some(word[..len - 1].to_string());
+    }
+
+    if word.ends_with('s') && len > 3 && !word.ends_with("ss") && !word.ends_with("us") {
+        return Some(word[..len - 1].to_string());
+    }
+
+    if word.ends_with("ly") && len > 4 {
+        return Some(word[..len - 2].to_string());
+    }
+
+    None
+}
+
+/// 检查是否是 CJK 字符
+fn is_cjk(c: char) -> bool {
+    matches!(c,
+        '\u{4E00}'..='\u{9FFF}' |
+        '\u{3400}'..='\u{4DBF}' |
+        '\u{20000}'..='\u{2A6DF}' |
+        '\u{F900}'..='\u{FAFF}'
+    )
+}
+
 /// 轻量级索引
 ///
 /// 使用纯内存结构实现快速的 bullet 检索，包括：
@@ -93,9 +160,13 @@ impl LightweightIndex {
         index
     }
 
-    /// 提取关键词（简单分词）
+    /// 提取关键词（优化版，与 storage.rs 保持一致）
     ///
     /// 从文本中提取有意义的关键词，用于倒排索引。
+    /// 优化策略：
+    /// 1. 过滤停用词
+    /// 2. 添加词干变体
+    /// 3. 支持中文 2-gram
     ///
     /// # 参数
     /// - `content`: 待提取的文本
@@ -103,12 +174,44 @@ impl LightweightIndex {
     /// # 返回
     /// 关键词列表
     fn extract_keywords(content: &str) -> Vec<String> {
-        content
-            .to_lowercase()
-            .split(|c: char| !c.is_alphanumeric())
-            .filter(|s| s.len() >= 3) // 至少3个字符
-            .map(std::string::ToString::to_string)
-            .collect()
+        let mut keywords = Vec::new();
+        let content_lower = content.to_lowercase();
+
+        // 1. 提取英文单词（过滤停用词，添加词干）
+        for word in content_lower.split(|c: char| !c.is_alphanumeric()) {
+            if word.is_empty() {
+                continue;
+            }
+
+            // 检查是否全是 ASCII（英文单词）
+            if word.chars().all(|c| c.is_ascii_alphanumeric()) {
+                // 过滤停用词和过短的词
+                if word.len() >= 2 && !STOP_WORDS.contains(&word) {
+                    keywords.push(word.to_string());
+
+                    // 词干提取（提高召回率）
+                    if let Some(stem) = simple_stem(word) {
+                        if stem != word && !STOP_WORDS.contains(&stem.as_str()) {
+                            keywords.push(stem);
+                        }
+                    }
+                }
+            }
+        }
+
+        // 2. 提取中文 2-gram
+        let chinese_chars: Vec<char> = content_lower.chars().filter(|c| is_cjk(*c)).collect();
+        if chinese_chars.len() >= 2 {
+            for i in 0..chinese_chars.len().saturating_sub(1) {
+                let bigram: String = chinese_chars[i..=i + 1].iter().collect();
+                keywords.push(bigram);
+            }
+        }
+
+        // 去重
+        keywords.sort();
+        keywords.dedup();
+        keywords
     }
 
     /// 计算文本相似度（使用高级相似度算法）

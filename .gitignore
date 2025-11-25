@@ -105,3 +105,8 @@ test20*/
 # ACE 测试目录
 test20251114/
 test2025-11-18/
+
+# 临时测试示例文件（examples 目录）
+codex-rs/core/examples/test_fuzzy_match.rs
+codex-rs/core/examples/test_today_query.rs
+codex-rs/core/examples/test_user_query.rs

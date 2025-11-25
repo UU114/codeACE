@@ -198,6 +198,67 @@ impl SimilarityCalculator {
         lev_score * 0.4 + bigram_score * 0.3 + trigram_score * 0.3
     }
 
+    /// 优化版组合相似度计算（根据文本长度调整权重）
+    ///
+    /// 对于短字符串，Levenshtein 距离更可靠；
+    /// 对于长文本，N-gram 相似度更有效。
+    ///
+    /// # 参数
+    /// - `s1`: 第一个字符串
+    /// - `s2`: 第二个字符串
+    ///
+    /// # 返回值
+    /// 返回 0.0 (完全不同) - 1.0 (完全相同)
+    pub fn combined_similarity_v2(s1: &str, s2: &str) -> f32 {
+        let len1 = s1.chars().count();
+        let len2 = s2.chars().count();
+        let min_len = len1.min(len2);
+
+        let lev_score = Self::similarity_score(s1, s2);
+        let bigram_score = Self::ngram_similarity(s1, s2, 2);
+
+        if min_len <= 5 {
+            // 短词：Levenshtein 占主导（70%）
+            return lev_score * 0.7 + bigram_score * 0.3;
+        }
+
+        // 长文本：N-gram 更重要
+        let trigram_score = Self::ngram_similarity(s1, s2, 3);
+        lev_score * 0.3 + bigram_score * 0.35 + trigram_score * 0.35
+    }
+
+    /// 前缀匹配分数
+    ///
+    /// 计算两个字符串的公共前缀长度与最短字符串长度的比值。
+    /// 对于英文单词的变形（如 "test" vs "testing"）很有用。
+    ///
+    /// # 参数
+    /// - `s1`: 第一个字符串
+    /// - `s2`: 第二个字符串
+    ///
+    /// # 返回值
+    /// 返回 0.0 (无公共前缀) - 1.0 (完全相同或一个是另一个的前缀)
+    pub fn prefix_similarity(s1: &str, s2: &str) -> f32 {
+        let chars1: Vec<char> = s1.chars().collect();
+        let chars2: Vec<char> = s2.chars().collect();
+        let min_len = chars1.len().min(chars2.len());
+
+        if min_len == 0 {
+            return 0.0;
+        }
+
+        let mut common_prefix = 0;
+        for i in 0..min_len {
+            if chars1[i] == chars2[i] {
+                common_prefix += 1;
+            } else {
+                break;
+            }
+        }
+
+        common_prefix as f32 / min_len as f32
+    }
+
     /// 检查两个字符串是否相似（用于去重）
     ///
     /// # 参数

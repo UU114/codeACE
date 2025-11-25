@@ -3,6 +3,7 @@
 //! Playbook storage system supporting incremental updates (Delta merging).
 //! Uses JSON format to store entire Playbook, supports in-place bullet updates.
 
+use super::similarity::SimilarityCalculator;
 use super::types::Bullet;
 use super::types::BulletSection;
 use super::types::DeltaContext;
@@ -28,6 +29,109 @@ pub struct BulletStorage {
     max_bullets: usize,
 }
 
+/// 英文停用词表（高频无意义词）
+/// 这些词在搜索时会被过滤，以提高匹配精确度
+const STOP_WORDS: &[&str] = &[
+    "a", "an", "the", "is", "are", "was", "were", "be", "been", "being", "to", "of", "in", "for",
+    "on", "with", "at", "by", "from", "as", "it", "its", "this", "that", "these", "those", "which",
+    "what", "who", "how", "when", "where", "why", "all", "each", "every", "both", "few", "and",
+    "or", "but", "not", "no", "nor", "so", "yet", "if", "then", "else", "can", "could", "will",
+    "would", "shall", "should", "may", "might", "must", "do", "does", "did", "done", "doing",
+    "has", "have", "had", "having", "am", "your", "my", "our", "his", "her", "their", "me", "you",
+    "we", "he", "she",
+];
+
+/// 简单英文词干提取（无外部依赖）
+///
+/// 处理常见的英文单词后缀，提高召回率。
+/// 例如: "testing" -> "test", "users" -> "user"
+fn simple_stem(word: &str) -> Option<String> {
+    let word = word.to_lowercase();
+    let len = word.len();
+
+    // 处理 -ing 后缀（如 testing -> test, running -> run）
+    if word.ends_with("ing") && len > 5 {
+        let stem = &word[..len - 3];
+        // 处理双写辅音（如 running -> run）
+        if stem.len() >= 2 {
+            let chars: Vec<char> = stem.chars().collect();
+            let last = chars[chars.len() - 1];
+            let second_last = chars[chars.len() - 2];
+            if last == second_last && !matches!(last, 'a' | 'e' | 'i' | 'o' | 'u') {
+                return Some(stem[..stem.len() - 1].to_string());
+            }
+        }
+        return Some(stem.to_string());
+    }
+
+    // 处理 -ed 后缀（如 tested -> test, created -> create）
+    if word.ends_with("ed") && len > 4 {
+        let stem = &word[..len - 2];
+        // 如果以 e 结尾的动词（如 created -> create）
+        if !stem.ends_with('e') {
+            return Some(stem.to_string());
+        }
+        // 否则可能是 tested -> test
+        return Some(stem.to_string());
+    }
+
+    // 处理 -es 后缀（如 matches -> match, boxes -> box）
+    if word.ends_with("es") && len > 4 {
+        let without_es = &word[..len - 2];
+        // 如果以 ch, sh, x, s, z 结尾，去掉 es
+        if without_es.ends_with("ch")
+            || without_es.ends_with("sh")
+            || without_es.ends_with('x')
+            || without_es.ends_with('s')
+            || without_es.ends_with('z')
+        {
+            return Some(without_es.to_string());
+        }
+        // 否则尝试去掉 s
+        return Some(word[..len - 1].to_string());
+    }
+
+    // 处理 -s 后缀（如 users -> user, tests -> test）
+    if word.ends_with('s') && len > 3 && !word.ends_with("ss") && !word.ends_with("us") {
+        return Some(word[..len - 1].to_string());
+    }
+
+    // 处理 -ly 后缀（如 quickly -> quick）
+    if word.ends_with("ly") && len > 4 {
+        return Some(word[..len - 2].to_string());
+    }
+
+    // 处理 -er 后缀（如 faster -> fast，但保留 user, never 等）
+    if word.ends_with("er") && len > 4 {
+        let stem = &word[..len - 2];
+        // 只有当去掉 er 后仍是有意义的词时才处理
+        // 避免 user -> us, never -> nev 等错误
+        if stem
+            .chars()
+            .last()
+            .map(char::is_alphabetic)
+            .unwrap_or(false)
+        {
+            // 只对形容词比较级处理（保守策略）
+            if stem.ends_with("fast") || stem.ends_with("slow") || stem.ends_with("quick") {
+                return Some(stem.to_string());
+            }
+        }
+    }
+
+    None
+}
+
+/// 检查是否是 CJK（中日韩）字符
+fn is_cjk(c: char) -> bool {
+    matches!(c,
+        '\u{4E00}'..='\u{9FFF}' |  // CJK Unified Ideographs
+        '\u{3400}'..='\u{4DBF}' |  // CJK Extension A
+        '\u{20000}'..='\u{2A6DF}' | // CJK Extension B
+        '\u{F900}'..='\u{FAFF}'    // CJK Compatibility Ideographs
+    )
+}
+
 impl BulletStorage {
     /// Create new storage
     pub fn new(base_path: impl AsRef<Path>, max_bullets: usize) -> Result<Self> {
@@ -46,42 +150,59 @@ impl BulletStorage {
         })
     }
 
-    /// 提取查询关键词（支持中英文混合）
+    /// 提取查询关键词（优化版，支持中英文混合）
     ///
-    /// 策略：
-    /// 1. 先按空格分词（处理英文词和混合词）
-    /// 2. 对于每个分词结果，提取连续的中文字符和英文词
+    /// 优化策略：
+    /// 1. 提取英文单词并过滤停用词
+    /// 2. 对英文单词进行词干提取（提高召回率）
+    /// 3. 提取中文 2-gram（保守策略，减少噪音）
+    /// 4. 添加完整中文字符串用于精确匹配
     fn extract_keywords(query: &str) -> Vec<String> {
         let mut keywords = Vec::new();
+        let query_lower = query.to_lowercase();
 
-        // 1. 按空格分词
-        for word in query.split_whitespace() {
-            // 添加完整的词
-            keywords.push(word.to_string());
-
-            // 2. 提取中文字符组（2个字符以上的连续中文）
-            let mut chinese_chars = String::new();
-            for ch in word.chars() {
-                if ch.is_ascii_alphabetic() || ch.is_ascii_digit() {
-                    // 遇到英文/数字，保存之前的中文词
-                    if chinese_chars.len() >= 2 { // 至少2个中文字
-                        keywords.push(chinese_chars.clone());
-                    }
-                    chinese_chars.clear();
-                } else if !ch.is_ascii_punctuation() && !ch.is_whitespace() {
-                    // 中文或其他非ASCII字符
-                    chinese_chars.push(ch);
-                }
+        // 1. 提取英文单词（按非字母数字分割）
+        for word in query_lower.split(|c: char| !c.is_alphanumeric()) {
+            if word.is_empty() {
+                continue;
             }
-            // 保存最后的中文词
-            if chinese_chars.len() >= 2 {
-                keywords.push(chinese_chars);
+
+            // 检查是否全是 ASCII（英文单词）
+            if word.chars().all(|c| c.is_ascii_alphanumeric()) {
+                // 过滤停用词和过短的词
+                if word.len() >= 2 && !STOP_WORDS.contains(&word) {
+                    keywords.push(word.to_string());
+
+                    // 词干提取（提高召回率，如 "testing" -> "test"）
+                    if let Some(stem) = simple_stem(word) {
+                        if stem != word && !STOP_WORDS.contains(&stem.as_str()) {
+                            keywords.push(stem);
+                        }
+                    }
+                }
             }
         }
 
-        // 去重并转小写
+        // 2. 提取中文字符（保守策略，减少噪音）
+        let chinese_chars: Vec<char> = query_lower.chars().filter(|c| is_cjk(*c)).collect();
+
+        if chinese_chars.len() >= 2 {
+            // 只提取 2-gram，不生成 3-gram（减少噪音）
+            for i in 0..chinese_chars.len().saturating_sub(1) {
+                let bigram: String = chinese_chars[i..=i + 1].iter().collect();
+                keywords.push(bigram);
+            }
+
+            // 添加完整中文字符串（用于精确匹配）
+            let full_chinese: String = chinese_chars.iter().collect();
+            keywords.push(full_chinese);
+        }
+
+        // 去重
         keywords.sort();
         keywords.dedup();
+
+        tracing::debug!("extract_keywords (optimized): {:?}", keywords);
         keywords
     }
 
@@ -176,70 +297,154 @@ impl BulletStorage {
 
     /// Query bullets (for context loading)
     ///
-    /// Uses simple keyword matching (MVP), sorted by relevance score.
+    /// 优化版查询，使用简化的 3 层评分策略：
+    /// - 层1: 精确匹配（高权重）
+    /// - 层2: 模糊匹配（仅当精确匹配不足时）
+    /// - 层3: 元数据加成（仅对高质量匹配）
+    ///
+    /// 同时添加质量惩罚机制，防止噪音累加
     pub async fn query_bullets(&self, query: &str, max_results: usize) -> Result<Vec<Bullet>> {
         let playbook = self.load_playbook().await?;
         let query_lower = query.to_lowercase();
+        let query_normalized = SimilarityCalculator::normalize_text(&query_lower, true);
         let mut results = Vec::new();
 
-        // 提取查询关键词（支持中英文混合）
+        // 提取查询关键词（优化版）
         let keywords = Self::extract_keywords(&query_lower);
 
-        // Simple keyword matching (MVP)
+        // 诊断日志
+        tracing::info!(
+            "query_bullets: query='{}', keywords={:?}, total_bullets={}",
+            query_lower,
+            keywords,
+            playbook.metadata.total_bullets
+        );
+
+        // 提高阈值，减少误匹配
+        const FUZZY_THRESHOLD: f32 = 0.5; // 从 0.4 提高到 0.5
+        const HIGH_MATCH_THRESHOLD: f32 = 0.7; // 高匹配阈值
+
         for bullets in playbook.bullets.values() {
             for bullet in bullets {
                 let content_lower = bullet.content.to_lowercase();
+                let content_normalized = SimilarityCalculator::normalize_text(&content_lower, true);
                 let tags_str = bullet.tags.join(" ").to_lowercase();
 
-                // Calculate relevance score (only score basic matches)
-                let mut score = 0;
+                let mut score: f32 = 0.0;
+                let mut match_count: i32 = 0; // 用于计算匹配质量
 
-                // Content match - 完整查询字符串匹配
+                // === 层1: 精确匹配（高权重） ===
+
+                // 完整查询匹配
                 if content_lower.contains(&query_lower) {
-                    score += 3;
+                    score += 15.0;
+                    match_count += 3;
                 }
 
-                // Content match - 按提取的关键词匹配
+                // 关键词精确匹配
                 for keyword in &keywords {
+                    // 内容匹配
                     if content_lower.contains(keyword) {
-                        score += 2;
+                        let word_score = match keyword.len() {
+                            2..=3 => 2.0, // 短词低分（如 "js"）
+                            4..=6 => 4.0, // 中等词
+                            _ => 5.0,     // 长词高分
+                        };
+                        score += word_score;
+                        match_count += 1;
                     }
-                }
 
-                // Tag match
-                for keyword in &keywords {
+                    // 标签匹配（bonus）
                     if tags_str.contains(keyword) {
-                        score += 2;
+                        score += 3.0;
+                        match_count += 1;
                     }
                 }
 
-                // Tool match
-                for tool in &bullet.metadata.related_tools {
-                    if query_lower.contains(&tool.to_lowercase()) {
-                        score += 2;
+                // 中文精确匹配
+                let content_chinese: String =
+                    content_lower.chars().filter(|c| is_cjk(*c)).collect();
+                for keyword in &keywords {
+                    let is_chinese_keyword = keyword.chars().all(is_cjk);
+                    if is_chinese_keyword && content_chinese.contains(keyword) {
+                        let keyword_len = keyword.chars().count();
+                        score += (keyword_len as f32).min(4.0);
+                        match_count += 1;
                     }
                 }
 
-                // Only apply importance and success rate weighting when content/tags/tools match
-                if score > 0 {
-                    // Importance weighting
-                    score += (bullet.metadata.importance * 10.0) as i32;
+                // === 层2: 模糊匹配（仅当精确匹配不足时） ===
+                if match_count < 2 {
+                    let overall_similarity = SimilarityCalculator::combined_similarity(
+                        &query_normalized,
+                        &content_normalized,
+                    );
 
-                    // Success rate weighting
+                    if overall_similarity > HIGH_MATCH_THRESHOLD {
+                        score += overall_similarity * 8.0;
+                        match_count += 1;
+                    } else if overall_similarity > FUZZY_THRESHOLD {
+                        score += overall_similarity * 4.0;
+                    }
+                }
+
+                // === 层3: 元数据加成（仅对高质量匹配） ===
+                if match_count >= 2 {
+                    // Importance 权重
+                    score += bullet.metadata.importance * 3.0;
+
+                    // 成功率权重
                     let success_rate = bullet.success_rate();
                     if success_rate > 0.7 {
-                        score += 2;
+                        score += 2.0;
                     }
 
+                    // 工具匹配（bonus）
+                    for tool in &bullet.metadata.related_tools {
+                        if query_lower.contains(&tool.to_lowercase()) {
+                            score += 3.0;
+                        }
+                    }
+
+                    // 语言标签匹配（bonus）
+                    for keyword in &keywords {
+                        for tag in &bullet.tags {
+                            let tag_lower = tag.to_lowercase();
+                            if let Some(lang) = tag_lower.strip_prefix("lang:") {
+                                if lang == *keyword || keyword.contains(lang) {
+                                    score += 2.0;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // === 质量惩罚机制 ===
+                // 如果关键词很多但匹配很少，降低分数
+                if !keywords.is_empty() {
+                    let match_ratio = match_count as f32 / keywords.len() as f32;
+                    if match_ratio < 0.3 && score > 0.0 {
+                        score *= 0.5; // 惩罚低质量匹配
+                    }
+                }
+
+                // 提高最低分数阈值（从 0.5 提高到 2.0）
+                if score > 2.0 {
                     results.push((bullet.clone(), score));
                 }
             }
         }
 
-        // Sort by score
-        results.sort_by(|a, b| b.1.cmp(&a.1));
+        // 按分数降序排序
+        results.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
-        // Return top N
+        tracing::info!(
+            "query_bullets: found {} matches (returning top {})",
+            results.len(),
+            max_results
+        );
+
+        // 返回 top N
         Ok(results
             .into_iter()
             .take(max_results)
