@@ -6,7 +6,7 @@
 // 1. 将此文件放到 codex-rs/core/examples/ 目录
 // 2. 运行: cargo run --example ace_diagnosis --features ace
 
-use codex_core::ace::{BulletStorage, ACEPlugin, ACEConfig};
+use codex_core::ace::{ACEConfig, ACEPlugin, BulletStorage};
 use codex_core::hooks::ExecutorHook;
 use std::path::PathBuf;
 
@@ -46,9 +46,9 @@ async fn main() -> anyhow::Result<()> {
     println!("3. 测试查询功能:");
 
     let test_queries = vec![
-        "rust test",           // 应该匹配playbook中的内容
-        "pm2 部署",           // 应该匹配
-        "analyse game",       // 应该匹配
+        "rust test",              // 应该匹配playbook中的内容
+        "pm2 部署",               // 应该匹配
+        "analyse game",           // 应该匹配
         "随机不存在的内容xyz123", // 不应该匹配
     ];
 
@@ -58,8 +58,11 @@ async fn main() -> anyhow::Result<()> {
             Ok(bullets) if !bullets.is_empty() => {
                 println!("   ✅ 找到 {} 条相关bullets:", bullets.len());
                 for (i, bullet) in bullets.iter().enumerate().take(2) {
-                    println!("      {}. {}", i + 1,
-                        bullet.content.chars().take(60).collect::<String>());
+                    println!(
+                        "      {}. {}",
+                        i + 1,
+                        bullet.content.chars().take(60).collect::<String>()
+                    );
                 }
             }
             Ok(_) => {

@@ -54,21 +54,21 @@ impl RecallTracker {
                 bullet.metadata.record_recall(context.clone(), success);
 
                 tracing::debug!(
-                    "记录 bullet {} 召回，总次数: {}, 成功率: {:.2}%",
+                    "Recorded bullet {} recall, total: {}, success rate: {:.2}%",
                     bullet_id,
                     bullet.metadata.recall_count,
                     bullet.metadata.success_rate * 100.0
                 );
             } else {
-                tracing::warn!("Bullet {} 不存在，无法记录召回", bullet_id);
+                tracing::warn!("Bullet {} does not exist, cannot record recall", bullet_id);
             }
         }
 
-        // 保存更新后的 playbook
+        // Save updated playbook
         storage.save_playbook(&playbook).await?;
 
         tracing::info!(
-            "召回记录完成: {} 个 bullets, 上下文: {}, 成功: {}",
+            "Recall recording complete: {} bullets, context: {}, success: {}",
             bullet_ids.len(),
             context,
             success
@@ -177,22 +177,22 @@ pub struct RecallStatistics {
 }
 
 impl RecallStatistics {
-    /// 格式化为人类可读的字符串
+    /// Format as human-readable string
     pub fn to_string(&self) -> String {
         let mut output = String::new();
-        output.push_str("=== 召回统计 ===\n");
-        output.push_str(&format!("总 Bullet 数: {}\n", self.total_bullets));
-        output.push_str(&format!("被召回过: {}\n", self.recalled_bullets));
-        output.push_str(&format!("总召回次数: {}\n", self.total_recalls));
-        output.push_str(&format!("总成功次数: {}\n", self.total_successes));
-        output.push_str(&format!("总失败次数: {}\n", self.total_failures));
+        output.push_str("=== Recall Statistics ===\n");
+        output.push_str(&format!("Total Bullets: {}\n", self.total_bullets));
+        output.push_str(&format!("Recalled: {}\n", self.recalled_bullets));
+        output.push_str(&format!("Total Recalls: {}\n", self.total_recalls));
+        output.push_str(&format!("Total Successes: {}\n", self.total_successes));
+        output.push_str(&format!("Total Failures: {}\n", self.total_failures));
         output.push_str(&format!(
-            "总体成功率: {:.2}%\n",
+            "Overall Success Rate: {:.2}%\n",
             self.overall_success_rate * 100.0
         ));
-        output.push_str("\n最常用的 Bullets:\n");
+        output.push_str("\nMost Used Bullets:\n");
         for (i, (id, count)) in self.most_used_bullets.iter().enumerate() {
-            output.push_str(&format!("  {}. {} (召回 {} 次)\n", i + 1, id, count));
+            output.push_str(&format!("  {}. {} (recalled {} times)\n", i + 1, id, count));
         }
         output
     }

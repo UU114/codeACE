@@ -589,10 +589,10 @@ async fn process_chat_sse<S>(
         };
         trace!("chat_completions received SSE chunk: {chunk:?}");
 
-        // 在 debug 模式下记录响应日志
+        // 在 debug 模式下记录响应日志（合并版本）
         #[cfg(debug_assertions)]
         {
-            llm_logger::log_chat_response(_request_id.clone(), chunk.clone()).await;
+            llm_logger::log_chat_response_merged(chunk.clone()).await;
         }
 
         let choice_opt = chunk.get("choices").and_then(|c| c.get(0));

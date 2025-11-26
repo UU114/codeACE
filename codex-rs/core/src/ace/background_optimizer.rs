@@ -5,7 +5,6 @@ use crate::ace::types::Bullet;
 use anyhow::Result;
 use chrono::Utc;
 use std::collections::HashSet;
-use std::hash::{DefaultHasher, Hash, Hasher};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use tokio::sync::RwLock;
@@ -202,20 +201,6 @@ impl BackgroundOptimizer {
         }
 
         Ok(removed_count)
-    }
-
-    /// 计算内容哈希（归一化后）
-    fn calculate_content_hash(content: &str) -> u64 {
-        // 归一化：转小写，只保留字母数字
-        let normalized = content
-            .to_lowercase()
-            .chars()
-            .filter(|c| c.is_alphanumeric() || c.is_whitespace())
-            .collect::<String>();
-
-        let mut hasher = DefaultHasher::new();
-        normalized.hash(&mut hasher);
-        hasher.finish()
     }
 
     /// 重新计算所有权重

@@ -11,12 +11,12 @@ async fn main() -> anyhow::Result<()> {
     let storage = BulletStorage::new(&ace_path, 500)?;
 
     let test_queries = vec![
-        "rust test",          // 应该匹配
-        "如何运行rust测试",     // 目前不匹配
-        "rust",               // 简单测试
-        "测试",               // 中文单词
-        "运行",               // 中文单词
-        "cargo test",         // 工具匹配
+        "rust test",        // 应该匹配
+        "如何运行rust测试", // 目前不匹配
+        "rust",             // 简单测试
+        "测试",             // 中文单词
+        "运行",             // 中文单词
+        "cargo test",       // 工具匹配
     ];
 
     for query in test_queries {
@@ -28,8 +28,9 @@ async fn main() -> anyhow::Result<()> {
             Ok(bullets) => {
                 println!("  ✅ 结果: {} 条bullets", bullets.len());
                 for (i, bullet) in bullets.iter().enumerate().take(2) {
-                    println!("    {}. [tags: {:?}] {}",
-                        i+1,
+                    println!(
+                        "    {}. [tags: {:?}] {}",
+                        i + 1,
                         bullet.tags,
                         bullet.content.chars().take(50).collect::<String>()
                     );

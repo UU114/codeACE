@@ -1793,13 +1793,19 @@ pub(crate) async fn run_task(
     #[cfg(feature = "ace")]
     let ace_context = {
         if let Some(ref hook_manager) = sess.services.hook_manager {
+            tracing::info!(
+                "🔍 ACE: Calling pre_execute with query: {} chars",
+                user_query_text.len()
+            );
             if let Some(context) = hook_manager.call_pre_execute(&user_query_text) {
-                tracing::debug!("ACE loaded context: {} chars", context.len());
+                tracing::info!("✅ ACE: Loaded context: {} chars", context.len());
                 Some(context)
             } else {
+                tracing::info!("⚠️ ACE: pre_execute returned None (no relevant context found)");
                 None
             }
         } else {
+            tracing::info!("⚠️ ACE: hook_manager is None");
             None
         }
     };

@@ -126,7 +126,11 @@ fn create_token(user_id: &str) -> Result<String> {
                     println!("  语言: {}", language);
                     println!("  行数: {}", code.lines().count());
                 }
-                codex_core::ace::types::BulletCodeContent::Summary { language, file_path, .. } => {
+                codex_core::ace::types::BulletCodeContent::Summary {
+                    language,
+                    file_path,
+                    ..
+                } => {
                     println!("  类型: 摘要");
                     println!("  语言: {}", language);
                     println!("  文件: {}", file_path);

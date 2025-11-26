@@ -60,9 +60,6 @@ pub struct ACEPlugin {
 
     /// Storage - 存储管理（增量更新）
     storage: Arc<BulletStorage>,
-
-    /// 配置（保留用于未来扩展）
-    config: ACEConfig,
 }
 
 impl ACEPlugin {
@@ -91,7 +88,6 @@ impl ACEPlugin {
             reflector,
             curator,
             storage,
-            config,
         })
     }
 
@@ -302,17 +298,24 @@ impl ExecutorHook for ACEPlugin {
             // 创建新的运行时
             let rt = tokio::runtime::Runtime::new().ok()?;
             rt.block_on(async move {
+                tracing::info!(
+                    "🔍 ACE pre_execute: Querying bullets for: {}",
+                    query_content.chars().take(50).collect::<String>()
+                );
                 match storage.query_bullets(&query_content, 10).await {
                     Ok(bullets) if !bullets.is_empty() => {
-                        tracing::debug!("Found {} relevant bullets", bullets.len());
+                        tracing::info!(
+                            "✅ ACE pre_execute: Found {} relevant bullets",
+                            bullets.len()
+                        );
                         Some(bullets)
                     }
                     Ok(_) => {
-                        tracing::debug!("No relevant bullets found");
+                        tracing::info!("⚠️ ACE pre_execute: No relevant bullets found");
                         None
                     }
                     Err(e) => {
-                        tracing::warn!("Failed to query bullets: {}", e);
+                        tracing::warn!("❌ ACE pre_execute: Failed to query bullets: {}", e);
                         None
                     }
                 }

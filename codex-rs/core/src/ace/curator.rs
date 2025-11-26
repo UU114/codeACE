@@ -61,15 +61,15 @@ impl CuratorMVP {
 
             if valid {
                 validated_insights.push(insight);
-                tracing::debug!("接受 insight: {}", reason);
+                tracing::debug!("Accepted insight: {}", reason);
             } else {
                 rejected_count += 1;
-                tracing::warn!("拒绝 insight: {}", reason);
+                tracing::warn!("Rejected insight: {}", reason);
             }
         }
 
         tracing::info!(
-            "内容验证: {} 通过, {} 被拒绝",
+            "Content validation: {} passed, {} rejected",
             validated_insights.len(),
             rejected_count
         );
@@ -102,19 +102,19 @@ impl CuratorMVP {
             .user_requirement(&insight.context.user_query)
             .solution_approach(&insight.content);
 
-        // 设置解决结果
+        // Set solution result
         let result_text = if insight.context.execution_success {
-            "任务成功完成"
+            "Task completed successfully"
         } else {
-            "任务执行失败或部分完成"
+            "Task failed or partially completed"
         };
         builder = builder.solution_result(result_text);
 
-        // 设置评价
+        // Set evaluation
         let evaluation = if insight.context.execution_success {
-            "✅ 成功"
+            "✅ Success"
         } else {
-            "⚠️  需要改进"
+            "⚠️  Needs improvement"
         };
         builder = builder.evaluation(evaluation);
 
@@ -191,8 +191,8 @@ impl CuratorMVP {
     fn categorize_insight(&self, insight: &RawInsight) -> BulletSection {
         match insight.category {
             InsightCategory::ToolUsage => {
-                // 判断是否为代码片段
-                if insight.content.contains("```") || insight.content.contains("代码") {
+                // Check if it's a code snippet
+                if insight.content.contains("```") || insight.content.contains("code") {
                     BulletSection::CodeSnippetsAndTemplates
                 } else {
                     BulletSection::ToolUsageTips

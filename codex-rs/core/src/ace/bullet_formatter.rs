@@ -140,40 +140,40 @@ impl BulletContentBuilder {
     pub fn build(self) -> anyhow::Result<String> {
         let mut content = String::new();
 
-        // 必须项检查
+        // Required field validation
         let user_req = self
             .user_requirement
-            .ok_or_else(|| anyhow::anyhow!("用户需求是必须的"))?;
+            .ok_or_else(|| anyhow::anyhow!("User requirement is required"))?;
         let solution = self
             .solution_approach
-            .ok_or_else(|| anyhow::anyhow!("解决思路是必须的"))?;
+            .ok_or_else(|| anyhow::anyhow!("Solution approach is required"))?;
         let result = self
             .solution_result
-            .ok_or_else(|| anyhow::anyhow!("解决结果是必须的"))?;
+            .ok_or_else(|| anyhow::anyhow!("Solution result is required"))?;
         let evaluation = self
             .evaluation
-            .ok_or_else(|| anyhow::anyhow!("评价是必须的"))?;
+            .ok_or_else(|| anyhow::anyhow!("Evaluation is required"))?;
 
-        // 1. 用户需求（必须）
-        writeln!(content, "**用户需求**: {}", user_req)?;
+        // 1. User Requirement (required)
+        writeln!(content, "**User Requirement**: {}", user_req)?;
         writeln!(content)?;
 
-        // 2. 需求分析（可选）
+        // 2. Requirement Analysis (optional)
         if let Some(analysis) = self.requirement_analysis {
-            writeln!(content, "**需求分析**:")?;
+            writeln!(content, "**Requirement Analysis**:")?;
             writeln!(content, "{}", analysis)?;
             writeln!(content)?;
         }
 
-        // 3. 解决思路及方法（必须）
-        writeln!(content, "**解决思路及方法**:")?;
+        // 3. Solution Approach (required)
+        writeln!(content, "**Solution Approach**:")?;
         writeln!(content, "{}", solution)?;
         writeln!(content)?;
 
-        // 4. 遇到的错误（可选）
+        // 4. Errors Encountered (optional)
         if let Some(errors) = self.errors_encountered {
             if !errors.is_empty() {
-                writeln!(content, "**遇到的错误**:")?;
+                writeln!(content, "**Errors Encountered**:")?;
                 for error in errors {
                     writeln!(content, "- {}", error)?;
                 }
@@ -181,38 +181,38 @@ impl BulletContentBuilder {
             }
         }
 
-        // 5. 解决结果（必须）
-        writeln!(content, "**解决结果**: {}", result)?;
+        // 5. Solution Result (required)
+        writeln!(content, "**Solution Result**: {}", result)?;
         writeln!(content)?;
 
-        // 6. 总结分析（可选）
+        // 6. Summary Analysis (optional)
         if let Some(summary) = self.summary_analysis {
-            writeln!(content, "**总结分析**:")?;
+            writeln!(content, "**Summary Analysis**:")?;
             writeln!(content, "{}", summary)?;
             writeln!(content)?;
         }
 
-        // 7. 实施方案（可选）
+        // 7. Implementation Plan (optional)
         if let Some(plan) = self.implementation_plan {
-            writeln!(content, "**实施方案**:")?;
+            writeln!(content, "**Implementation Plan**:")?;
             writeln!(content, "{}", plan)?;
             writeln!(content)?;
         }
 
-        // 8. 方案文件位置（如果有）
+        // 8. Plan File Location (if exists)
         if let Some(path) = self.plan_file_path {
-            writeln!(content, "**方案文件**: `{}`", path)?;
+            writeln!(content, "**Plan File**: `{}`", path)?;
             writeln!(content)?;
         }
 
-        // 9. 评价（必须）
-        writeln!(content, "**评价**: {}", evaluation)?;
+        // 9. Evaluation (required)
+        writeln!(content, "**Evaluation**: {}", evaluation)?;
         writeln!(content)?;
 
-        // 10. 关键决策（可选）
+        // 10. Key Decisions (optional)
         if let Some(decisions) = self.key_decisions {
             if !decisions.is_empty() {
-                writeln!(content, "**关键决策**:")?;
+                writeln!(content, "**Key Decisions**:")?;
                 for decision in decisions {
                     writeln!(content, "- {}", decision)?;
                 }
@@ -220,10 +220,10 @@ impl BulletContentBuilder {
             }
         }
 
-        // 11. 技术选型（可选）
+        // 11. Tech Stack (optional)
         if let Some(tech_stack) = self.tech_stack {
             if !tech_stack.is_empty() {
-                writeln!(content, "**技术选型**:")?;
+                writeln!(content, "**Tech Stack**:")?;
                 for tech in tech_stack {
                     writeln!(content, "- {}", tech)?;
                 }
@@ -252,23 +252,23 @@ impl BulletContentBuilder {
         let approach = Self::extract_approach(conversation);
         builder = builder.solution_approach(approach);
 
-        // 3. 解决结果
+        // 3. Solution result
         let result = if success {
-            "任务成功完成"
+            "Task completed successfully"
         } else {
-            "任务执行失败或部分完成"
+            "Task failed or partially completed"
         };
         builder = builder.solution_result(result);
 
-        // 4. 评价
+        // 4. Evaluation
         let evaluation = if success {
-            "✅ 成功"
+            "✅ Success"
         } else {
-            "⚠️  需要改进"
+            "⚠️  Needs improvement"
         };
         builder = builder.evaluation(evaluation);
 
-        // 5. 如果失败，尝试提取错误
+        // 5. If failed, try to extract errors
         if !success {
             if let Some(error) = Self::extract_error(conversation) {
                 builder = builder.add_error(error);
@@ -289,17 +289,14 @@ impl BulletContentBuilder {
         }
     }
 
-    /// 提取错误信息（简化版）
+    /// Extract error information (simplified version)
     fn extract_error(conversation: &str) -> Option<String> {
         let lower = conversation.to_lowercase();
-        if lower.contains("error") || lower.contains("failed") || lower.contains("错误") {
-            // 简化：返回包含error的第一行
+        if lower.contains("error") || lower.contains("failed") {
+            // Simplified: return the first line containing error
             for line in conversation.lines() {
                 let line_lower = line.to_lowercase();
-                if line_lower.contains("error")
-                    || line_lower.contains("failed")
-                    || line_lower.contains("错误")
-                {
+                if line_lower.contains("error") || line_lower.contains("failed") {
                     return Some(line.trim().to_string());
                 }
             }
@@ -321,44 +318,48 @@ mod tests {
     #[test]
     fn test_build_complete_bullet() {
         let content = BulletContentBuilder::new()
-            .user_requirement("实现用户登录功能")
-            .requirement_analysis("需要支持邮箱和密码登录，包含验证和会话管理")
-            .solution_approach("使用JWT token进行认证，bcrypt加密密码")
-            .add_error("初次尝试时忘记添加密码盐值")
-            .solution_result("成功实现登录功能，包含完整的安全机制")
-            .summary_analysis("JWT方案简单高效，适合无状态API")
-            .evaluation("✅ 成功，安全性良好")
-            .add_key_decision("选择JWT而非session")
+            .user_requirement("Implement user login feature")
+            .requirement_analysis(
+                "Need to support email and password login with validation and session management",
+            )
+            .solution_approach("Use JWT token for authentication, bcrypt for password encryption")
+            .add_error("Forgot to add password salt on first attempt")
+            .solution_result(
+                "Successfully implemented login feature with complete security mechanism",
+            )
+            .summary_analysis("JWT solution is simple and efficient, suitable for stateless APIs")
+            .evaluation("✅ Success, good security")
+            .add_key_decision("Chose JWT over session")
             .add_tech_stack("jsonwebtoken crate")
             .build()
             .unwrap();
 
-        assert!(content.contains("用户需求"));
+        assert!(content.contains("User Requirement"));
         assert!(content.contains("JWT token"));
-        assert!(content.contains("成功"));
+        assert!(content.contains("Success"));
     }
 
     #[test]
     fn test_build_minimal_bullet() {
         let content = BulletContentBuilder::new()
-            .user_requirement("测试命令")
-            .solution_approach("使用cargo test")
-            .solution_result("测试通过")
-            .evaluation("✅ 成功")
+            .user_requirement("Test command")
+            .solution_approach("Use cargo test")
+            .solution_result("Tests passed")
+            .evaluation("✅ Success")
             .build()
             .unwrap();
 
-        assert!(content.contains("用户需求"));
+        assert!(content.contains("User Requirement"));
         assert!(content.contains("cargo test"));
     }
 
     #[test]
     fn test_missing_required_field() {
         let result = BulletContentBuilder::new()
-            .user_requirement("测试")
-            .solution_approach("方法")
-            // 缺少solution_result
-            .evaluation("好")
+            .user_requirement("Test")
+            .solution_approach("Method")
+            // Missing solution_result
+            .evaluation("Good")
             .build();
 
         assert!(result.is_err());
@@ -367,13 +368,13 @@ mod tests {
     #[test]
     fn test_from_conversation() {
         let content = BulletContentBuilder::from_conversation(
-            "如何运行测试？",
-            "可以使用cargo test命令运行所有测试。这会编译并执行测试用例。",
+            "How to run tests?",
+            "You can use cargo test command to run all tests. This will compile and execute test cases.",
             true,
         )
         .unwrap();
 
-        assert!(content.contains("如何运行测试"));
-        assert!(content.contains("成功"));
+        assert!(content.contains("How to run tests"));
+        assert!(content.contains("Success"));
     }
 }
