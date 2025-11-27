@@ -286,6 +286,10 @@ cd codex-rs
 cargo build --release
 ```
 
+编译完成后，可执行文件位于 `target/release/codeACE`。
+
+**注意**：虽然源码目录名为 `codex-rs`，但编译生成的二进制文件名为 `codeACE`。
+
 ACE 模块已默认编译，无需额外配置。
 
 ### 配置文件
@@ -310,29 +314,29 @@ extract_errors = true
 
 ```bash
 # 启动交互式 TUI
-cargo run --bin codex
+cargo run --bin codeACE
 
 # 非交互模式执行
-cargo run --bin codex exec "你的任务描述"
+cargo run --bin codeACE exec "你的任务描述"
 
 # 查看详细日志
-RUST_LOG=debug cargo run --bin codex
+RUST_LOG=debug cargo run --bin codeACE
 ```
 
 ### ACE Playbook 管理
 
 ```bash
 # 查看当前 Playbook 统计
-codex ace stats
+codeACE ace stats
 
 # 手动触发优化
-codex ace optimize
+codeACE ace optimize
 
 # 导出 Playbook
-codex ace export --output ./my-playbook.json
+codeACE ace export --output ./my-playbook.json
 
 # 导入 Playbook
-codex ace import --input ./my-playbook.json
+codeACE ace import --input ./my-playbook.json
 ```
 
 ## 项目结构
@@ -380,25 +384,25 @@ codeACE 同时支持 MCP 客户端和服务器模式：
 
 ```bash
 # 作为 MCP 服务器运行
-codex mcp-server
+codeACE mcp-server
 
 # 管理 MCP 服务器配置
-codex mcp list
-codex mcp add <name> <command>
-codex mcp remove <name>
+codeACE mcp list
+codeACE mcp add <name> <command>
+codeACE mcp remove <name>
 ```
 
 ### 沙箱模式
 
 ```bash
 # 只读模式（默认）
-codex --sandbox read-only
+codeACE --sandbox read-only
 
 # 允许工作区写入
-codex --sandbox workspace-write
+codeACE --sandbox workspace-write
 
 # 完全访问（需在隔离环境使用）
-codex --sandbox danger-full-access
+codeACE --sandbox danger-full-access
 ```
 
 配置文件持久化：

@@ -1,6 +1,6 @@
 # codex-core
 
-This crate implements the business logic for Codex. It is designed to be used by the various Codex UIs written in Rust.
+This crate implements the business logic for codeACE. It is designed to be used by the various codeACE UIs written in Rust.
 
 ## Dependencies
 
@@ -12,7 +12,7 @@ Expects `/usr/bin/sandbox-exec` to be present.
 
 ### Linux
 
-Expects the binary containing `codex-core` to run the equivalent of `codex sandbox linux` (legacy alias: `codex debug landlock`) when `arg0` is `codex-linux-sandbox`. See the `codex-arg0` crate for details.
+Expects the binary containing `codex-core` to run the equivalent of `codeACE sandbox linux` (legacy alias: `codeACE debug landlock`) when `arg0` is `codex-linux-sandbox`. See the `codex-arg0` crate for details.
 
 ### All Platforms
 

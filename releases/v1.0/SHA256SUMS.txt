@@ -1,0 +1,2 @@
+ef6b05464418f83f67ccd0f53ef79b8d0031acf18113f9f61b6bc9ab9504cba0  codex-linux-x86_64
+9dabd91246fa8e21ff3ab2718343aab1e37ccccd72d8eea3d7baf5d49f50c10b  codex-windows-x86_64.exe

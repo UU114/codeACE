@@ -110,3 +110,13 @@ test2025-11-18/
 codex-rs/core/examples/test_fuzzy_match.rs
 codex-rs/core/examples/test_today_query.rs
 codex-rs/core/examples/test_user_query.rs
+
+# Release相关临时文件
+RELEASE_SUMMARY.md
+BUILD_STATIC_GUIDE.md
+V1.0_RELEASE_SUMMARY.md
+
+# Release目录中的可执行文件（保留文档）
+releases/*/codex-linux-*
+releases/*/codex-windows-*
+releases/*/*.exe
